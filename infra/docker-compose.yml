@@ -1,0 +1,91 @@
+# Kartyavya local integrated environment - Owner: M1, reviewed by M4-M6
+# Usage: docker compose -f infra/docker-compose.yml up --build
+# Architecture boundary: only api-gateway is exposed publicly in production; all ports are open here for local dev only.
+
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: access_db
+    ports: [ "3306:3306" ]
+    volumes: [ "mysql-data:/var/lib/mysql" ]
+
+  mongo:
+    image: mongo:7
+    ports: [ "27017:27017" ]
+    volumes: [ "mongo-data:/data/db" ]
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports: [ "5672:5672", "15672:15672" ]
+
+  config-server:
+    build: ../config-server
+    ports: [ "8888:8888" ]
+    environment:
+      CONFIG_REPO_URI: ${CONFIG_REPO_URI}
+
+  eureka-server:
+    build: ../service-registry
+    ports: [ "8761:8761" ]
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+    depends_on: [ config-server ]
+
+  access-admin-service:
+    build: ../access-admin-service
+    ports: [ "8081:8081" ]
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      MYSQL_HOST: mysql
+    depends_on: [ config-server, eureka-server, mysql ]
+
+  civic-report-service:
+    build: ../civic-report-service
+    ports: [ "8082:8082" ]
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      MYSQL_HOST: mysql
+      RABBITMQ_HOST: rabbitmq
+    depends_on: [ config-server, eureka-server, mysql, rabbitmq ]
+
+  ai-analytics-service:
+    build: ../ai-analytics-service
+    ports: [ "8083:8083" ]
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      MONGO_URI: mongodb://mongo:27017/ai_analytics_db
+      RABBITMQ_HOST: rabbitmq
+    depends_on: [ config-server, eureka-server, mongo, rabbitmq ]
+
+  email-notification-service:
+    build: ../email-notification-service
+    ports: [ "8084:8084" ]
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      MONGO_URI: mongodb://mongo:27017/notification_db
+      RABBITMQ_HOST: rabbitmq
+    depends_on: [ config-server, eureka-server, mongo, rabbitmq ]
+
+  api-gateway:
+    build: ../api-gateway
+    ports: [ "8080:8080" ]
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      EUREKA_URL: http://eureka-server:8761/eureka/
+    depends_on:
+      - access-admin-service
+      - civic-report-service
+      - ai-analytics-service
+      - email-notification-service
+
+volumes:
+  mysql-data:
+  mongo-data:

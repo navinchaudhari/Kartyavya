@@ -1,0 +1,30 @@
+# Kartyavya CODEOWNERS - mirrors docs/contracts/member-ownership.md
+# Replace the GitHub usernames below with actual teammate usernames before pushing.
+
+/config-server/                         @M1-username
+/access-admin-service/                  @M1-username
+/kartyavya-config/                      @M1-username
+/docs/contracts/                        @M1-username
+
+/civic-report-service/                  @M2-username
+
+/ai-analytics-service/                  @M3-username
+
+/email-notification-service/            @M4-username
+/frontend/src/admin/notifications/      @M4-username
+
+/service-registry/                      @M5-username
+/frontend/src/auth/                     @M5-username
+/frontend/src/public/                   @M5-username
+/frontend/src/citizen/                  @M5-username
+/frontend/src/maps/                     @M5-username
+
+/api-gateway/                           @M6-username
+/frontend/src/officer/                  @M6-username
+/frontend/src/admin/management/         @M6-username
+/frontend/src/admin/analytics/          @M6-username
+/frontend/src/shared/                   @M6-username
+
+/.github/                               @M1-username
+/.agents/                               @M1-username
+/infra/                                 @M1-username
