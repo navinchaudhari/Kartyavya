@@ -29,6 +29,12 @@ mvn -f access-admin-service/pom.xml clean package
 
 ---
 
+## STEP 0 - If you already pushed an older version, delete those repos first
+On GitHub: `kartyavya` -> Settings -> scroll to bottom -> Delete this repository (type the name to
+confirm). Repeat for `kartyavya-config`. Skip this step if you're pushing for the first time.
+Note: this rewrites history, so if any teammate already cloned, tell them to delete their local
+copy and re-clone fresh after Step 6 below - don't let them merge an old branch back in.
+
 ## STEP 1 - Unzip and inspect
 ```
 unzip Kartyavya-PreDay1.zip
@@ -36,6 +42,13 @@ cd Kartyavya-PreDay1
 ```
 Both `kartyavya/` and `kartyavya-config/` are already `git init`-ed locally with one initial commit
 each, on branch `main` (kartyavya also has `develop` checked out). You do not need to run `git init` again.
+
+## Config file format note
+All Spring configuration in this project is `.properties`, not YAML - `kartyavya-config/*.properties`
+(served by Config Server) and each service's own `src/main/resources/application.properties`
+(spring.application.name, spring.config.import, spring.profiles.active). `infra/docker-compose.yml`
+and `.github/workflows/ci.yml` stay YAML since that's a fixed requirement of those tools. See
+`docs/contracts/config-contracts.md` for the full contract.
 
 ## STEP 2 - Read the frozen contracts (you, before anyone else touches anything)
 Open, in this order:
