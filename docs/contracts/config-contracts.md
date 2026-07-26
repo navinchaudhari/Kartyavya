@@ -11,12 +11,16 @@ application.properties, eureka-server.properties, api-gateway.properties, access
 civic-report-service.properties, ai-analytics-service.properties, email-notification-service.properties,
 application-local.properties, application-docker.properties, application-prod.properties
 
-## Client bootstrap contract (every service) - `src/main/resources/bootstrap.properties`
+## Client bootstrap contract (every service) - `src/main/resources/application.properties`
 ```properties
 spring.application.name=<service-name>
 spring.config.import=optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
 spring.profiles.active=${SPRING_PROFILES_ACTIVE:local}
 ```
+Note: this goes in `application.properties`, not `bootstrap.properties`. Spring Boot 3.x / Spring Cloud
+2025.x resolve `spring.config.import` through the standard config-data mechanism, which only reads
+`application.*` files unless the project explicitly adds `spring-cloud-starter-bootstrap` (which this
+project does not, on purpose - the legacy bootstrap context adds startup overhead with no benefit here).
 - Every client sets spring.application.name locally before remote config loads.
 - Config Server does not depend on Eureka to start.
 - Secrets stay as ${ENV_VAR} placeholders in the config repo - never committed literal values.
