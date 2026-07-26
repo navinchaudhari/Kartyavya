@@ -1,30 +1,30 @@
 # Kartyavya CODEOWNERS - mirrors docs/contracts/member-ownership.md
 # Replace the GitHub usernames below with actual teammate usernames before pushing.
 
-/config-server/                         @M1-username
-/access-admin-service/                  @M1-username
-/kartyavya-config/                      @M1-username
-/docs/contracts/                        @M1-username
+/config-server/                         @navinchaudhari
+/access-admin-service/                  @navinchaudhari
+/kartyavya-config/                      @navinchaudhari
+/docs/contracts/                        @navinchaudhari
 
-/civic-report-service/                  @M2-username
+/civic-report-service/                  @ShivrajHalgode
 
-/ai-analytics-service/                  @M3-username
+/ai-analytics-service/                  @nikhilk244
 
-/email-notification-service/            @M4-username
-/frontend/src/admin/notifications/      @M4-username
+/email-notification-service/            @sumitpatil20
+/frontend/src/admin/notifications/      @sumitpatil20
 
-/service-registry/                      @M5-username
-/frontend/src/auth/                     @M5-username
-/frontend/src/public/                   @M5-username
-/frontend/src/citizen/                  @M5-username
-/frontend/src/maps/                     @M5-username
+/service-registry/                      @tanushkapatilcmfeb26
+/frontend/src/auth/                     @tanushkapatilcmfeb26
+/frontend/src/public/                   @tanushkapatilcmfeb26
+/frontend/src/citizen/                  @tanushkapatilcmfeb26
+/frontend/src/maps/                     @tanushkapatilcmfeb26
 
-/api-gateway/                           @M6-username
-/frontend/src/officer/                  @M6-username
-/frontend/src/admin/management/         @M6-username
-/frontend/src/admin/analytics/          @M6-username
-/frontend/src/shared/                   @M6-username
+/api-gateway/                           @pushkardeshmukhcmfeb26
+/frontend/src/officer/                  @pushkardeshmukhcmfeb26
+/frontend/src/admin/management/         @pushkardeshmukhcmfeb26
+/frontend/src/admin/analytics/          @pushkardeshmukhcmfeb26
+/frontend/src/shared/                   @pushkardeshmukhcmfeb26
 
-/.github/                               @M1-username
-/.agents/                               @M1-username
-/infra/                                 @M1-username
+/.github/                               @navinchaudhari
+/.agents/                               @navinchaudhari
+/infra/                                 @navinchaudhari

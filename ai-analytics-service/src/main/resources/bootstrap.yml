@@ -1,7 +1,0 @@
-spring:
-  application:
-    name: ai-analytics-service
-  config:
-    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
-  profiles:
-    active: ${SPRING_PROFILES_ACTIVE:local}
