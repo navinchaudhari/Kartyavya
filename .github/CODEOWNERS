@@ -1,6 +1,8 @@
 # Kartyavya CODEOWNERS - mirrors docs/contracts/member-ownership.md
 # Replace the GitHub usernames below with actual teammate usernames before pushing.
 
+* @ShivrajHalgode @navinchaudhari
+
 /config-server/                         @navinchaudhari
 /access-admin-service/                  @navinchaudhari
 /kartyavya-config/                      @navinchaudhari
