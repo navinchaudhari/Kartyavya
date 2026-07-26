@@ -1,18 +1,21 @@
 # Config Server Contracts - Owner: M1
 
-## Config repository layout (private repo `kartyavya-config`)
-application.yml, eureka-server.yml, api-gateway.yml, access-admin-service.yml, civic-report-service.yml,
-ai-analytics-service.yml, email-notification-service.yml, application-local.yml, application-docker.yml, application-prod.yml
+Format rule: all Spring configuration in this project uses `.properties` files, not YAML. This applies to the
+`kartyavya-config` repository, every service's local `bootstrap.properties`, and Config Server's own
+`application.properties`. (Docker Compose and GitHub Actions files stay YAML - that's a fixed requirement of
+those tools, not a Spring config choice, so `infra/docker-compose.yml` and `.github/workflows/ci.yml` are
+unaffected by this rule.)
 
-## Client bootstrap contract (every service)
-```yaml
-spring:
-  application:
-    name: <service-name>
-  config:
-    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
-  profiles:
-    active: ${SPRING_PROFILES_ACTIVE:local}
+## Config repository layout (private repo `kartyavya-config`)
+application.properties, eureka-server.properties, api-gateway.properties, access-admin-service.properties,
+civic-report-service.properties, ai-analytics-service.properties, email-notification-service.properties,
+application-local.properties, application-docker.properties, application-prod.properties
+
+## Client bootstrap contract (every service) - `src/main/resources/bootstrap.properties`
+```properties
+spring.application.name=<service-name>
+spring.config.import=optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+spring.profiles.active=${SPRING_PROFILES_ACTIVE:local}
 ```
 - Every client sets spring.application.name locally before remote config loads.
 - Config Server does not depend on Eureka to start.
