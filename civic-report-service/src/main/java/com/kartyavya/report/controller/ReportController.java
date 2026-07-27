@@ -5,8 +5,11 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import com.kartyavya.report.entity.Report;
 import com.kartyavya.report.service.ReportService;
+import jakarta.validation.Valid;
+
+import com.kartyavya.report.dto.ReportRequestDTO;
+import com.kartyavya.report.dto.ReportResponseDTO;
 
 @RestController
 @RequestMapping("/reports")
@@ -19,48 +22,60 @@ public class ReportController {
     }
 
 
+    // CREATE
     @PostMapping
-    public ResponseEntity<Report> createReport(
-            @RequestBody Report report) {
+    public ResponseEntity<ReportResponseDTO> createReport(
+            @Valid @RequestBody ReportRequestDTO request) {
 
-        return ResponseEntity.ok(service.saveReport(report));
+        return ResponseEntity.ok(
+                service.createReport(request)
+        );
     }
 
 
+    // GET ALL
     @GetMapping
-    public ResponseEntity<List<Report>> getReports() {
+    public ResponseEntity<List<ReportResponseDTO>> getReports() {
 
-        return ResponseEntity.ok(service.getAllReports());
+        return ResponseEntity.ok(
+                service.getAllReports()
+        );
     }
 
 
+    // GET BY ID
     @GetMapping("/{id}")
-    public ResponseEntity<Report> getReportById(
+    public ResponseEntity<ReportResponseDTO> getReportById(
             @PathVariable("id") Long id) {
 
-        Report report = service.getReportById(id);
-
-        return ResponseEntity.ok(report);
+        return ResponseEntity.ok(
+                service.getReportById(id)
+        );
     }
 
 
+    // UPDATE
     @PutMapping("/{id}")
-    public ResponseEntity<Report> updateReport(
+    public ResponseEntity<ReportResponseDTO> updateReport(
             @PathVariable("id") Long id,
-            @RequestBody Report report) {
+            @Valid @RequestBody ReportRequestDTO request) {
 
-        Report updated = service.updateReport(id, report);
-
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(
+                service.updateReport(id, request)
+        );
     }
 
 
+    // DELETE
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteReport(
             @PathVariable("id") Long id) {
 
         service.deleteReport(id);
 
-        return ResponseEntity.ok("Report deleted successfully");
+        return ResponseEntity.ok(
+                "Report deleted successfully"
+        );
     }
+
 }

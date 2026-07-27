@@ -1,13 +1,15 @@
 package com.kartyavya.report.service;
 
-import com.kartyavya.report.exception.ReportNotFoundException;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
 import com.kartyavya.report.entity.Report;
 import com.kartyavya.report.repository.ReportRepository;
-
+import com.kartyavya.report.dto.ReportRequestDTO;
+import com.kartyavya.report.dto.ReportResponseDTO;
+import com.kartyavya.report.mapper.ReportMapper;
+import com.kartyavya.report.exception.ReportNotFoundException;
 
 @Service
 public class ReportService {
@@ -24,74 +26,92 @@ public class ReportService {
 
 
     // CREATE
-    public Report saveReport(Report report){
+    public ReportResponseDTO createReport(ReportRequestDTO request){
 
-        return repository.save(report);
+        Report report = ReportMapper.toEntity(request);
+
+        Report savedReport = repository.save(report);
+
+        return ReportMapper.toResponseDTO(savedReport);
     }
 
 
 
     // GET ALL
-    public List<Report> getAllReports(){
+    public List<ReportResponseDTO> getAllReports(){
 
-        return repository.findAll();
+        return repository.findAll()
+                .stream()
+                .map(ReportMapper::toResponseDTO)
+                .toList();
     }
 
 
 
     // GET BY ID
-    public Report getReportById(Long id){
+    public ReportResponseDTO getReportById(Long id){
 
-        return repository.findById(id)
+        Report report = repository.findById(id)
                 .orElseThrow(
-                    () -> new RuntimeException(
+                    () -> new ReportNotFoundException(
                         "Report not found : " + id
                     )
                 );
+
+
+        return ReportMapper.toResponseDTO(report);
     }
 
 
 
     // UPDATE
-    public Report updateReport(Long id, Report newReport){
+    public ReportResponseDTO updateReport(
+            Long id,
+            ReportRequestDTO request){
 
 
         Report existing = repository.findById(id)
                 .orElseThrow(
-                    () -> new RuntimeException(
+                    () -> new ReportNotFoundException(
                         "Report not found : " + id
                     )
                 );
 
 
-        existing.setTitle(newReport.getTitle());
+        existing.setTitle(
+                request.getTitle()
+        );
+
 
         existing.setDescription(
-                newReport.getDescription()
+                request.getDescription()
         );
+
 
         existing.setCategory(
-                newReport.getCategory()
+                request.getCategory()
         );
+
 
         existing.setSeverity(
-                newReport.getSeverity()
+                request.getSeverity()
         );
 
-        existing.setStatus(
-                newReport.getStatus()
-        );
 
         existing.setLatitude(
-                newReport.getLatitude()
+                request.getLatitude()
         );
+
 
         existing.setLongitude(
-                newReport.getLongitude()
+                request.getLongitude()
         );
 
 
-        return repository.save(existing);
+        Report updated = repository.save(existing);
+
+
+        return ReportMapper.toResponseDTO(updated);
 
     }
 
@@ -106,6 +126,7 @@ public class ReportService {
                         "Report not found : " + id
                     )
                 );
+
 
         repository.delete(report);
     }
