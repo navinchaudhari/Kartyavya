@@ -34,4 +34,12 @@ public class ReportService {
 
     }
 
+
+    public Report getReportById(Long id){
+
+        return repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Report not found with id: " + id));
+
+    }
+
 }
