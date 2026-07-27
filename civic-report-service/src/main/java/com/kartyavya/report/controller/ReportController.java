@@ -2,6 +2,7 @@ package com.kartyavya.report.controller;
 
 import java.util.List;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.kartyavya.report.entity.Report;
@@ -13,30 +14,53 @@ public class ReportController {
 
     private final ReportService service;
 
-    public ReportController(ReportService service){
+    public ReportController(ReportService service) {
         this.service = service;
     }
 
 
-    @GetMapping("/{id}")
-    public Report getReportById(@PathVariable("id") Long id){
+    @PostMapping
+    public ResponseEntity<Report> createReport(
+            @RequestBody Report report) {
 
-        return service.getReportById(id);
+        return ResponseEntity.ok(service.saveReport(report));
     }
 
 
     @GetMapping
-    public List<Report> getReports(){
+    public ResponseEntity<List<Report>> getReports() {
 
-        return service.getAllReports();
+        return ResponseEntity.ok(service.getAllReports());
     }
 
 
-    @PostMapping
-    public Report createReport(
-            @RequestBody Report report){
+    @GetMapping("/{id}")
+    public ResponseEntity<Report> getReportById(
+            @PathVariable("id") Long id) {
 
-        return service.saveReport(report);
+        Report report = service.getReportById(id);
+
+        return ResponseEntity.ok(report);
     }
 
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Report> updateReport(
+            @PathVariable("id") Long id,
+            @RequestBody Report report) {
+
+        Report updated = service.updateReport(id, report);
+
+        return ResponseEntity.ok(updated);
+    }
+
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteReport(
+            @PathVariable("id") Long id) {
+
+        service.deleteReport(id);
+
+        return ResponseEntity.ok("Report deleted successfully");
+    }
 }
