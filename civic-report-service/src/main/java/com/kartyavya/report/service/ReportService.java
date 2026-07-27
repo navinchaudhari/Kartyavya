@@ -58,7 +58,6 @@ public class ReportService {
                     )
                 );
 
-
         return ReportMapper.toResponseDTO(report);
     }
 
