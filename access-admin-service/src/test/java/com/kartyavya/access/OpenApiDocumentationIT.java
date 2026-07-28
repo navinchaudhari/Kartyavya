@@ -1,5 +1,6 @@
 package com.kartyavya.access;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -19,6 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     }
 )
 @AutoConfigureMockMvc
+@Tag("integration")
 class OpenApiDocumentationIT {
 
     @Autowired
@@ -38,6 +40,16 @@ class OpenApiDocumentationIT {
             .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
             .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
             .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.bearerFormat").value("JWT"))
-            .andExpect(jsonPath("$.paths['/api/auth/me'].get.security[0].bearerAuth").exists());
+            .andExpect(jsonPath("$.paths['/api/auth/me'].get.security[0].bearerAuth").exists())
+            // Day 2+3: new paths
+            .andExpect(jsonPath("$.paths['/api/departments']").exists())
+            .andExpect(jsonPath("$.paths['/api/routing-rules']").exists())
+            .andExpect(jsonPath("$.paths['/api/admin/users']").exists())
+            .andExpect(jsonPath("$.paths['/api/admin/officers']").exists())
+            .andExpect(jsonPath("$.paths['/internal/routing/resolve']").exists())
+            // Day 2+3: internalServiceKey scheme
+            .andExpect(jsonPath("$.components.securitySchemes.internalServiceKey").exists())
+            .andExpect(jsonPath("$.components.securitySchemes.internalServiceKey.type").value("apiKey"))
+            .andExpect(jsonPath("$.components.securitySchemes.internalServiceKey.name").value("X-Internal-Service-Key"));
     }
 }

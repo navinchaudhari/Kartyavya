@@ -22,7 +22,8 @@ public class Report {
             nullable = false,
             unique = true,
             length = 36,
-            columnDefinition = "CHAR(36)"
+            columnDefinition = "CHAR(36)",
+            updatable = false
     )
     private String trackingCode;
 
@@ -74,31 +75,35 @@ public class Report {
     private Long version;
 
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
 
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
 
+
+    // Runs automatically before saving new report
     @PrePersist
     public void prePersist(){
 
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-
-        if(trackingCode == null){
+        if(trackingCode == null || trackingCode.isEmpty()){
             trackingCode = UUID.randomUUID().toString();
         }
 
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
     }
 
 
+
+    // Runs automatically before updating report
     @PreUpdate
     public void preUpdate(){
 
         updatedAt = LocalDateTime.now();
 
     }
+
 }

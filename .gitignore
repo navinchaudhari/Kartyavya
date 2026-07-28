@@ -9,6 +9,15 @@ target/
 *.iml
 .vscode/
 
+# Eclipse / STS
+.classpath
+.project
+.settings/
+.metadata/
+
+# Build output
+bin/
+
 # Node / React
 frontend/node_modules/
 frontend/dist/
@@ -26,4 +35,3 @@ Thumbs.db
 .env
 *.pem
 *.key
-/.metadata/

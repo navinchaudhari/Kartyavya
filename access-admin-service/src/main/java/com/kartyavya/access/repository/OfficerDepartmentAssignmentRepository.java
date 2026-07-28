@@ -7,4 +7,6 @@ import java.util.Optional;
 
 public interface OfficerDepartmentAssignmentRepository extends JpaRepository<OfficerDepartmentAssignment, Long> {
     Optional<OfficerDepartmentAssignment> findByOfficerId(Long officerId);
+    boolean existsByOfficerId(Long officerId);
+    org.springframework.data.domain.Page<OfficerDepartmentAssignment> findByActiveTrue(org.springframework.data.domain.Pageable pageable);
 }
