@@ -7,6 +7,7 @@ import com.kartyavya.access.exception.DuplicateResourceException;
 import com.kartyavya.access.exception.InvalidCredentialsException;
 import com.kartyavya.access.repository.*;
 import com.kartyavya.access.security.JwtService;
+import com.kartyavya.access.util.EmailNormalizer;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,13 +49,14 @@ public class AuthService {
 
     /** Register a new CITIZEN user. Throws DuplicateResourceException if email already exists. */
     public UserResponse register(RegisterRequest req) {
-        if (userRepository.existsByEmail(req.email())) {
+        String normalizedEmail = EmailNormalizer.normalize(req.email());
+        if (userRepository.existsByEmail(normalizedEmail)) {
             throw new DuplicateResourceException("Email address is already registered: " + req.email());
         }
 
         User user = new User();
         user.setName(req.name());
-        user.setEmail(req.email());
+        user.setEmail(normalizedEmail);
         user.setPasswordHash(passwordEncoder.encode(req.password()));
         user.setEnabled(true);
         User saved = userRepository.save(user);
@@ -77,7 +79,8 @@ public class AuthService {
     /** Authenticate and issue a JWT. Throws InvalidCredentialsException on any mismatch. */
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest req) {
-        User user = userRepository.findByEmail(req.email())
+        String normalizedEmail = EmailNormalizer.normalize(req.email());
+        User user = userRepository.findByEmail(normalizedEmail)
             .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
 
         if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {

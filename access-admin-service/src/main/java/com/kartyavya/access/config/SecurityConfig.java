@@ -1,10 +1,13 @@
 package com.kartyavya.access.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kartyavya.access.repository.UserRepository;
 import com.kartyavya.access.security.CustomAccessDeniedHandler;
 import com.kartyavya.access.security.CustomAuthenticationEntryPoint;
+import com.kartyavya.access.security.InternalServiceKeyFilter;
 import com.kartyavya.access.security.JwtAuthenticationFilter;
 import com.kartyavya.access.security.JwtService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -34,19 +37,25 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 public class SecurityConfig {
 
+    @Value("${internal.service-key:}")
+    private String internalServiceKey;
+
     private final JwtService jwtService;
     private final UserRepository userRepository;
     private final CustomAuthenticationEntryPoint authEntryPoint;
     private final CustomAccessDeniedHandler accessDeniedHandler;
+    private final ObjectMapper objectMapper;
 
     public SecurityConfig(JwtService jwtService,
                           UserRepository userRepository,
                           CustomAuthenticationEntryPoint authEntryPoint,
-                          CustomAccessDeniedHandler accessDeniedHandler) {
+                          CustomAccessDeniedHandler accessDeniedHandler,
+                          ObjectMapper objectMapper) {
         this.jwtService = jwtService;
         this.userRepository = userRepository;
         this.authEntryPoint = authEntryPoint;
         this.accessDeniedHandler = accessDeniedHandler;
+        this.objectMapper = objectMapper;
     }
 
     @Bean
@@ -57,6 +66,11 @@ public class SecurityConfig {
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
         return new JwtAuthenticationFilter(jwtService, userRepository);
+    }
+
+    @Bean
+    public InternalServiceKeyFilter internalServiceKeyFilter() {
+        return new InternalServiceKeyFilter(internalServiceKey, objectMapper);
     }
 
     @Bean
@@ -81,16 +95,25 @@ public class SecurityConfig {
                     "/api/auth/register",
                     "/api/auth/login"
                 ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/departments").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/departments").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/api/departments/**").hasRole("ADMIN")
+                .requestMatchers("/api/routing-rules/**").hasRole("ADMIN")
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers("/internal/**").hasRole("INTERNAL_SERVICE")
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(authEntryPoint)
                 .accessDeniedHandler(accessDeniedHandler)
             )
-            // CorrelationIdFilter registered FIRST — Spring Security's stable sort keeps it
-            // before JwtAuthenticationFilter when both share the same insertion position.
+            // Filter chain order:
+            // 1. CorrelationIdFilter - sets MDC + X-Correlation-Id for ALL requests (runs first)
+            // 2. JwtAuthenticationFilter - validates Bearer JWT, populates SecurityContext
+            // 3. InternalServiceKeyFilter - /internal/** only; UNCONDITIONALLY OVERWRITES SecurityContext
             .addFilterBefore(correlationIdFilter(), UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(jwtAuthenticationFilter(), CorrelationIdFilter.class)
+            .addFilterAfter(internalServiceKeyFilter(), JwtAuthenticationFilter.class)
             .build();
     }
 

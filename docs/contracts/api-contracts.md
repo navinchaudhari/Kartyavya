@@ -7,6 +7,14 @@ All endpoints are addressed through the API Gateway (port 8080). Global conventi
 - API version: `/api` paths, no `/v1`; breaking changes need a new documented version.
 - Correlation ID: UUID in `X-Correlation-Id`, created by Gateway when absent.
 
+## Standard page response
+Paginated endpoints (`GET /api/admin/users`, `GET /api/admin/officers`) return:
+```json
+{ "content": [], "page": 0, "size": 20, "totalElements": 0, "totalPages": 0, "last": true }
+```
+Pagination parameters: `page` (0-based, default 0), `size` (1–100, default 20).
+VALIDATION_FAILED/400 if `page < 0` or `size` outside 1–100.
+
 ## Frozen enums
 Role: CITIZEN, DEPARTMENT_OFFICER, ADMIN
 ReportCategory: POTHOLE, GARBAGE, STREETLIGHT, WATER_LEAKAGE, OTHER
@@ -44,6 +52,12 @@ Any -> Any (ADMIN override only; overrideReason required, full audit entry creat
 
 RegisterRequest: name (2..120), email, password (8..72, upper+lower+digit+special).
 LoginResponse: { token, expiresAt, user: { id, name, email, role, departmentId } }
+
+**Access & Administration business rules:**
+- Email normalization: all email addresses are trimmed and lowercased before persistence, uniqueness checks and authentication lookups. `User@Example.com` and `user@example.com` resolve to the same account.
+- Disabled department: POST /api/admin/officers and POST /api/routing-rules return INVALID_REQUEST/400 if the target department has `enabled=false`.
+- Admin self-disable: PATCH /api/admin/users/{id}/status returns INVALID_REQUEST/400 when the authenticated ADMIN sets `enabled=false` on their own account.
+- Routing-rule category immutability: PATCH /api/routing-rules/{id} may update only `departmentId` and `active`. The category is immutable after creation. Supplying `category` in the request body returns VALIDATION_FAILED/400.
 
 ## 2. Civic Report (M2) - base lb://civic-report-service
 | Method | Path | Role | Response | Status |

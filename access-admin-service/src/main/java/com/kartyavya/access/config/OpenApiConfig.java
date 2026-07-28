@@ -33,6 +33,12 @@ public class OpenApiConfig {
                                         .scheme("bearer")
                                         .bearerFormat("JWT")
                         )
+                        .addSecuritySchemes("internalServiceKey",
+                                new SecurityScheme()
+                                        .type(SecurityScheme.Type.APIKEY)
+                                        .in(SecurityScheme.In.HEADER)
+                                        .name("X-Internal-Service-Key")
+                        )
                 );
     }
 }
