@@ -36,6 +36,7 @@ class UserDisableInvalidatesTokenIT {
     @Autowired private UserRepository userRepository;
     @Autowired private RoleRepository roleRepository;
     @Autowired private UserRoleRepository userRoleRepository;
+    @Autowired private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     private String adminToken;
     private User adminUser;
@@ -49,34 +50,37 @@ class UserDisableInvalidatesTokenIT {
     void setUp() {
         suffix = UUID.randomUUID().toString().substring(0, 8);
         
-        // Admin
+        // Setup Admin
         adminUser = new User();
         adminUser.setName("Admin");
         adminUser.setEmail("admin-" + suffix + "@kartyavya.local");
         adminUser.setPasswordHash("hash");
         adminUser.setEnabled(true);
-        adminUser = userRepository.save(adminUser);
 
-        Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
-        UserRole adminUr = new UserRole();
-        adminUr.setUser(adminUser);
-        adminUr.setRole(adminRole);
-        userRoleRepository.save(adminUr);
-        adminToken = jwtService.generateToken(adminUser, "ADMIN", null);
-
-        // Citizen
+        // Setup Citizen
         citizenUser = new User();
         citizenUser.setName("Citizen");
         citizenUser.setEmail("citizen-" + suffix + "@kartyavya.local");
         citizenUser.setPasswordHash("hash");
         citizenUser.setEnabled(true);
-        citizenUser = userRepository.save(citizenUser);
 
-        Role citizenRole = roleRepository.findByName("CITIZEN").orElseThrow();
-        UserRole citizenUr = new UserRole();
-        citizenUr.setUser(citizenUser);
-        citizenUr.setRole(citizenRole);
-        userRoleRepository.save(citizenUr);
+        transactionTemplate.executeWithoutResult(status -> {
+            adminUser = userRepository.save(adminUser);
+            Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
+            UserRole adminUr = new UserRole();
+            adminUr.setUser(adminUser);
+            adminUr.setRole(adminRole);
+            userRoleRepository.save(adminUr);
+
+            citizenUser = userRepository.save(citizenUser);
+            Role citizenRole = roleRepository.findByName("CITIZEN").orElseThrow();
+            UserRole citizenUr = new UserRole();
+            citizenUr.setUser(citizenUser);
+            citizenUr.setRole(citizenRole);
+            userRoleRepository.save(citizenUr);
+        });
+
+        adminToken = jwtService.generateToken(adminUser, "ADMIN", null);
         citizenToken = jwtService.generateToken(citizenUser, "CITIZEN", null);
     }
 
@@ -92,7 +96,7 @@ class UserDisableInvalidatesTokenIT {
     @Test
     void disablingUser_immediatelyBlocksExistingTokens() throws Exception {
         // 1. Verify citizen token works
-        mockMvc.perform(get("/api/auth/profile")
+        mockMvc.perform(get("/api/auth/me")
                 .header("Authorization", "Bearer " + citizenToken))
                 .andExpect(status().isOk());
 
@@ -105,7 +109,7 @@ class UserDisableInvalidatesTokenIT {
                 .andExpect(status().isOk());
 
         // 3. Verify citizen token is now rejected because JwtAuthenticationFilter checks DB
-        mockMvc.perform(get("/api/auth/profile")
+        mockMvc.perform(get("/api/auth/me")
                 .header("Authorization", "Bearer " + citizenToken))
                 .andExpect(status().isUnauthorized());
     }

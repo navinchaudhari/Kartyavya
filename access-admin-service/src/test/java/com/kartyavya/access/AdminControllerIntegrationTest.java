@@ -44,6 +44,7 @@ class AdminControllerIntegrationTest {
     @Autowired private UserRoleRepository userRoleRepository;
     @Autowired private DepartmentRepository departmentRepository;
     @Autowired private OfficerDepartmentAssignmentRepository assignmentRepository;
+    @Autowired private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     private String adminToken;
     private User adminUser;
@@ -59,13 +60,17 @@ class AdminControllerIntegrationTest {
         adminUser.setEmail("admin-" + suffix + "@kartyavya.local");
         adminUser.setPasswordHash("hash");
         adminUser.setEnabled(true);
-        adminUser = userRepository.save(adminUser);
 
-        Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
-        UserRole adminUr = new UserRole();
-        adminUr.setUser(adminUser);
-        adminUr.setRole(adminRole);
-        userRoleRepository.save(adminUr);
+        transactionTemplate.executeWithoutResult(status -> {
+            adminUser = userRepository.save(adminUser);
+
+            Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
+            UserRole adminUr = new UserRole();
+            adminUr.setUser(adminUser);
+            adminUr.setRole(adminRole);
+            userRoleRepository.save(adminUr);
+        });
+        
         adminToken = jwtService.generateToken(adminUser, "ADMIN", null);
 
         testDept = new Department();

@@ -33,17 +33,17 @@ public class AdminController {
     @GetMapping("/users")
     @Operation(summary = "List users with optional filters (ADMIN only)")
     public PageResponse<UserResponse> listUsers(
-            @RequestParam(required = false) String role,
-            @RequestParam(required = false) Boolean enabled,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(value = "role", required = false) String role,
+            @RequestParam(value = "enabled", required = false) Boolean enabled,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
         return userAdminService.list(role, enabled, page, size);
     }
 
     @PatchMapping("/users/{id}/status")
     @Operation(summary = "Enable or disable a user account (ADMIN only)")
     public UserResponse updateUserStatus(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @Valid @RequestBody UserStatusRequest req,
             Authentication authentication) {
         AuthenticatedPrincipal p = (AuthenticatedPrincipal) authentication.getPrincipal();
@@ -60,8 +60,8 @@ public class AdminController {
     @GetMapping("/officers")
     @Operation(summary = "List active department officers (ADMIN only)")
     public PageResponse<OfficerResponse> listOfficers(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
         return officerService.list(page, size);
     }
 }

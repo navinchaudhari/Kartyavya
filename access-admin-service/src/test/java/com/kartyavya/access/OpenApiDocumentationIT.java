@@ -47,6 +47,15 @@ class OpenApiDocumentationIT {
             .andExpect(jsonPath("$.paths['/api/admin/users']").exists())
             .andExpect(jsonPath("$.paths['/api/admin/officers']").exists())
             .andExpect(jsonPath("$.paths['/internal/routing/resolve']").exists())
+            // Day 4: internal user contact endpoint and detailed schema assertions
+            .andExpect(jsonPath("$.paths['/internal/users/{userId}/contact']").exists())
+            .andExpect(jsonPath("$.paths['/internal/users/{userId}/contact'].get.parameters[0].name").value("userId"))
+            .andExpect(jsonPath("$.paths['/internal/users/{userId}/contact'].get.parameters[0].in").value("path"))
+            .andExpect(jsonPath("$.paths['/internal/users/{userId}/contact'].get.responses.200").exists())
+            .andExpect(jsonPath("$.paths['/internal/users/{userId}/contact'].get.responses.200.content['application/json'].schema.$ref").exists())
+            .andExpect(jsonPath("$.components.schemas.UserContactResponse").exists())
+            .andExpect(jsonPath("$.components.schemas.UserContactResponse.properties.id").exists())
+            .andExpect(jsonPath("$.components.schemas.UserContactResponse.properties.email").exists())
             // Day 2+3: internalServiceKey scheme
             .andExpect(jsonPath("$.components.securitySchemes.internalServiceKey").exists())
             .andExpect(jsonPath("$.components.securitySchemes.internalServiceKey.type").value("apiKey"))

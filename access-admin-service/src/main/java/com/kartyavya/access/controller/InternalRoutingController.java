@@ -21,7 +21,7 @@ public class InternalRoutingController {
 
     @GetMapping("/resolve")
     @Operation(summary = "Resolve a complaint category to a department (INTERNAL_SERVICE only)")
-    public DepartmentRoutingResponse resolveByCategory(@RequestParam String category) {
+    public DepartmentRoutingResponse resolveByCategory(@RequestParam("category") String category) {
         return routingRuleService.resolveByCategory(category);
     }
 }

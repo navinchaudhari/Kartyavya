@@ -44,6 +44,7 @@ class RoutingRuleControllerIntegrationTest {
     @Autowired private UserRoleRepository userRoleRepository;
     @Autowired private DepartmentRepository departmentRepository;
     @Autowired private RoutingRuleRepository routingRuleRepository;
+    @Autowired private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     private String adminToken;
     private String citizenToken;
@@ -61,27 +62,30 @@ class RoutingRuleControllerIntegrationTest {
         adminUser.setEmail("admin-" + suffix + "@kartyavya.local");
         adminUser.setPasswordHash("hash");
         adminUser.setEnabled(true);
-        adminUser = userRepository.save(adminUser);
-
-        Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
-        UserRole adminUr = new UserRole();
-        adminUr.setUser(adminUser);
-        adminUr.setRole(adminRole);
-        userRoleRepository.save(adminUr);
-        adminToken = jwtService.generateToken(adminUser, "ADMIN", null);
 
         citizenUser = new User();
         citizenUser.setName("Citizen");
         citizenUser.setEmail("citizen-" + suffix + "@kartyavya.local");
         citizenUser.setPasswordHash("hash");
         citizenUser.setEnabled(true);
-        citizenUser = userRepository.save(citizenUser);
 
-        Role citizenRole = roleRepository.findByName("CITIZEN").orElseThrow();
-        UserRole citizenUr = new UserRole();
-        citizenUr.setUser(citizenUser);
-        citizenUr.setRole(citizenRole);
-        userRoleRepository.save(citizenUr);
+        transactionTemplate.executeWithoutResult(status -> {
+            adminUser = userRepository.save(adminUser);
+            Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
+            UserRole adminUr = new UserRole();
+            adminUr.setUser(adminUser);
+            adminUr.setRole(adminRole);
+            userRoleRepository.save(adminUr);
+
+            citizenUser = userRepository.save(citizenUser);
+            Role citizenRole = roleRepository.findByName("CITIZEN").orElseThrow();
+            UserRole citizenUr = new UserRole();
+            citizenUr.setUser(citizenUser);
+            citizenUr.setRole(citizenRole);
+            userRoleRepository.save(citizenUr);
+        });
+
+        adminToken = jwtService.generateToken(adminUser, "ADMIN", null);
         citizenToken = jwtService.generateToken(citizenUser, "CITIZEN", null);
 
         testDept = new Department();
@@ -106,20 +110,11 @@ class RoutingRuleControllerIntegrationTest {
         userRepository.delete(citizenUser);
     }
 
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     @Test
     void post_validRequest_returns201() throws Exception {
-        // Assuming POTHOLE might be taken by seed data, let's just make sure we test safely.
-        // Actually POTHOLE is unique and seeded. We shouldn't use seeded categories for creation IT if they exist.
-        // But if we delete them, it breaks other things. Wait, we can't create if category exists.
-        // This test might fail if we try to create POTHOLE. We should test with a category that isn't seeded, 
-        // wait, the frozen list only allows 5 specific categories. 
-        // If they are all seeded, we can't test creation of a new one without failing validation.
-        // Let's delete the existing POTHOLE rule just for this test, and restore it later.
-        
-        RoutingRule existingRule = routingRuleRepository.findByCategory("POTHOLE").orElse(null);
-        if (existingRule != null) {
-            routingRuleRepository.delete(existingRule);
-        }
+        jdbcTemplate.update("DELETE FROM routing_rules WHERE category = 'POTHOLE'");
 
         try {
             RoutingRuleCreateRequest req = new RoutingRuleCreateRequest("POTHOLE", testDept.getId(), null);
@@ -132,13 +127,9 @@ class RoutingRuleControllerIntegrationTest {
                     .andExpect(jsonPath("$.category").value("POTHOLE"))
                     .andExpect(jsonPath("$.departmentId").value(testDept.getId()));
         } finally {
-            // Cleanup the created rule, and restore the seeded one is not strictly needed since other tests shouldn't rely on POTHOLE if they mock or we just let it be.
-            // Actually, SpringBootTest dirties context? No, database is shared.
-            // Let's just delete the one we created.
-            routingRuleRepository.findByCategory("POTHOLE").ifPresent(routingRuleRepository::delete);
-            if (existingRule != null) {
-                routingRuleRepository.save(existingRule);
-            }
+            jdbcTemplate.update("DELETE FROM routing_rules WHERE category = 'POTHOLE'");
+            jdbcTemplate.update("INSERT INTO routing_rules (category, department_id, active, created_at, updated_at) " +
+                                "SELECT 'POTHOLE', id, true, NOW(6), NOW(6) FROM departments WHERE name = 'Roads & Infrastructure' LIMIT 1");
         }
     }
 
