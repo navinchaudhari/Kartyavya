@@ -40,7 +40,7 @@ public class DepartmentController {
 
     @PatchMapping("/{id}")
     @Operation(summary = "Update an existing department (ADMIN only)")
-    public DepartmentResponse update(@PathVariable Long id, @Valid @RequestBody DepartmentUpdateRequest req) {
+    public DepartmentResponse update(@PathVariable("id") Long id, @Valid @RequestBody DepartmentUpdateRequest req) {
         return departmentService.update(id, req);
     }
 }

@@ -13,6 +13,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -64,6 +65,42 @@ public class GlobalExceptionHandler {
         ));
     }
 
+    /** 400 — method-level validation failures (e.g. @Positive @PathVariable in Spring Boot 3.2+). */
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ApiErrorResponse> handleMethodValidation(
+            HandlerMethodValidationException ex, HttpServletRequest request) {
+
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
+
+        ex.getValueResults().forEach(pvr -> {
+            String rawParamName = pvr.getMethodParameter().getParameterName();
+            if (rawParamName == null) {
+                org.springframework.web.bind.annotation.PathVariable pv = pvr.getMethodParameter().getParameterAnnotation(org.springframework.web.bind.annotation.PathVariable.class);
+                if (pv != null && !pv.value().isEmpty()) {
+                    rawParamName = pv.value();
+                } else if (pv != null && !pv.name().isEmpty()) {
+                    rawParamName = pv.name();
+                }
+            }
+            final String paramName = rawParamName != null ? rawParamName : "parameter";
+            
+            pvr.getResolvableErrors().forEach(re ->
+                fieldErrors.putIfAbsent(
+                    paramName,
+                    re.getDefaultMessage() != null ? re.getDefaultMessage() : "Invalid value"
+                )
+            );
+        });
+
+        return ResponseEntity.badRequest().body(new ApiErrorResponse(
+            Instant.now(), 400, "VALIDATION_FAILED",
+            "Request contains invalid fields",
+            request.getRequestURI(),
+            MDC.get("correlationId"),
+            fieldErrors
+        ));
+    }
+
     /**
      * 400 — request body unreadable or contains unknown fields
      * (triggered by {@code spring.jackson.deserialization.fail-on-unknown-properties=true}).
@@ -75,10 +112,8 @@ public class GlobalExceptionHandler {
 
         Map<String, String> fieldErrors = null;
         Throwable cause = ex.getCause();
-        if (cause instanceof InvalidDefinitionException ide
-                && ide.getPath() != null
-                && !ide.getPath().isEmpty()) {
-            String fieldName = ide.getPath().get(ide.getPath().size() - 1).getFieldName();
+        if (cause instanceof com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException upe) {
+            String fieldName = upe.getPropertyName();
             if (fieldName != null) {
                 fieldErrors = Map.of(fieldName, "unknown or unreadable field");
             }

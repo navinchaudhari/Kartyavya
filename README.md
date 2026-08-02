@@ -2,16 +2,6 @@
 
 AI-powered civic issue reporting and resolution platform. Team 2, C-DAC. Project Lead: Navin Anil Chaudhari.
 
-Status: Pre-Day-1 scaffold generated from the frozen v1.0 Technical Contracts and the Exclusive Ownership
-Seven-Day Plan. No business logic has been implemented yet - this is the frozen skeleton every member scaffolds
-from on Day 1.
-
-## Start here
-1. Read `docs/contracts/architecture.md` first, then every other file in `docs/contracts/`.
-2. Read `.agents/rules/kartyavya-project.md` - this is the rule file Antigravity (or any AI coding agent) must
-   load before touching any code.
-3. Find your row in `docs/contracts/member-ownership.md` - you may only edit your own folder(s).
-
 ## Seven applications
 config-server (8888, M1) - service-registry (8761, M5) - api-gateway (8080, M6) - access-admin-service (8081, M1)
 civic-report-service (8082, M2) - ai-analytics-service (8083, M3) - email-notification-service (8084, M4)

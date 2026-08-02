@@ -40,7 +40,7 @@ public class RoutingRuleController {
 
     @PatchMapping("/{id}")
     @Operation(summary = "Update an existing routing rule (ADMIN only)")
-    public RoutingRuleResponse update(@PathVariable Long id, @Valid @RequestBody RoutingRuleUpdateRequest req) {
+    public RoutingRuleResponse update(@PathVariable("id") Long id, @Valid @RequestBody RoutingRuleUpdateRequest req) {
         return routingRuleService.update(id, req);
     }
 }

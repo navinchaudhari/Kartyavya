@@ -40,6 +40,7 @@ class DepartmentControllerIntegrationTest {
     @Autowired private RoleRepository roleRepository;
     @Autowired private UserRoleRepository userRoleRepository;
     @Autowired private DepartmentRepository departmentRepository;
+    @Autowired private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     private String adminToken;
     private String citizenToken;
@@ -58,15 +59,6 @@ class DepartmentControllerIntegrationTest {
         adminUser.setEmail("admin-" + suffix + "@kartyavya.local");
         adminUser.setPasswordHash("hash");
         adminUser.setEnabled(true);
-        adminUser = userRepository.save(adminUser);
-
-        Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
-        UserRole adminUr = new UserRole();
-        adminUr.setUser(adminUser);
-        adminUr.setRole(adminRole);
-        userRoleRepository.save(adminUr);
-
-        adminToken = jwtService.generateToken(adminUser, "ADMIN", null);
 
         // Setup Citizen
         citizenUser = new User();
@@ -74,14 +66,24 @@ class DepartmentControllerIntegrationTest {
         citizenUser.setEmail("citizen-" + suffix + "@kartyavya.local");
         citizenUser.setPasswordHash("hash");
         citizenUser.setEnabled(true);
-        citizenUser = userRepository.save(citizenUser);
 
-        Role citizenRole = roleRepository.findByName("CITIZEN").orElseThrow();
-        UserRole citizenUr = new UserRole();
-        citizenUr.setUser(citizenUser);
-        citizenUr.setRole(citizenRole);
-        userRoleRepository.save(citizenUr);
+        transactionTemplate.executeWithoutResult(status -> {
+            adminUser = userRepository.save(adminUser);
+            Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
+            UserRole adminUr = new UserRole();
+            adminUr.setUser(adminUser);
+            adminUr.setRole(adminRole);
+            userRoleRepository.save(adminUr);
 
+            citizenUser = userRepository.save(citizenUser);
+            Role citizenRole = roleRepository.findByName("CITIZEN").orElseThrow();
+            UserRole citizenUr = new UserRole();
+            citizenUr.setUser(citizenUser);
+            citizenUr.setRole(citizenRole);
+            userRoleRepository.save(citizenUr);
+        });
+
+        adminToken = jwtService.generateToken(adminUser, "ADMIN", null);
         citizenToken = jwtService.generateToken(citizenUser, "CITIZEN", null);
     }
 
