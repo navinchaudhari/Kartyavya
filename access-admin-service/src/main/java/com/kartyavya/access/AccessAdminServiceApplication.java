@@ -1,13 +1,15 @@
 package com.kartyavya.access;
 
+import com.kartyavya.contracts.config.EnvFileLoader;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
-// Owner: M1 (Project Lead). Exclusive owner of access-admin-service/.
-// Frozen contracts: docs/contracts/api-contracts.md, database-schema.md, feign-contracts.md (provider side).
 @SpringBootApplication
+@EnableScheduling
 public class AccessAdminServiceApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(AccessAdminServiceApplication.class, args);
-    }
+	public static void main(String[] args) {
+		EnvFileLoader.load();
+		SpringApplication.run(AccessAdminServiceApplication.class, args);
+	}
 }

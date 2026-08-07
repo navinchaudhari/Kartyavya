@@ -1,136 +1,118 @@
 package com.kartyavya.access.service;
 
-import com.kartyavya.access.dto.*;
-import com.kartyavya.access.entity.User;
-import com.kartyavya.access.entity.UserRole;
-import com.kartyavya.access.exception.DuplicateResourceException;
-import com.kartyavya.access.exception.InvalidCredentialsException;
+import com.kartyavya.access.dto.AuthDtos.*;
+import com.kartyavya.access.entity.*;
 import com.kartyavya.access.repository.*;
 import com.kartyavya.access.security.JwtService;
-import com.kartyavya.access.util.EmailNormalizer;
+import com.kartyavya.contracts.*;
+
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.security.SecureRandom;
+import java.time.*;
+import java.util.Locale;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-
-/**
- * Business logic for authentication and user profile.
- *
- * register:    uniqueness check → BCrypt hash → save User → assign CITIZEN role
- * login:       email lookup → BCrypt verify → load role+dept → issue JWT
- * getProfile:  load user → resolve role+dept from DB (never from request params)
- */
 @Service
-@Transactional
+@RequiredArgsConstructor
 public class AuthService {
+	private final UserRepository users;
+	private final OfficerAssignmentRepository assignments;
+	private final PasswordOtpRepository otps;
+	private final PasswordEncoder encoder;
+	private final JwtService jwt;
+	private final EventPublisher events;
+	private final SecureRandom random = new SecureRandom();
 
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final UserRoleRepository userRoleRepository;
-    private final OfficerDepartmentAssignmentRepository assignmentRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
+	@Transactional
+	public void register(RegisterRequest r, String correlation) {
+		String email = r.email().trim().toLowerCase(Locale.ROOT);
+		if (users.existsByEmailIgnoreCase(email))
+			throw new IllegalStateException("Email already registered");
+		User u = new User();
+		u.setFullName(r.fullName().trim());
+		u.setEmail(email);
+		u.setPasswordHash(encoder.encode(r.password()));
+		u.setMobileNumber(r.mobileNumber());
+		u.setAddress(r.address().trim());
+		u.setRole("Citizen");
+		users.save(u);
+		events.publish(EventNames.USER_REGISTERED, correlation,
+				new Events.UserRegistered(u.getId(), u.getFullName(), u.getEmail()));
+	}
 
-    public AuthService(UserRepository userRepository,
-                       RoleRepository roleRepository,
-                       UserRoleRepository userRoleRepository,
-                       OfficerDepartmentAssignmentRepository assignmentRepository,
-                       PasswordEncoder passwordEncoder,
-                       JwtService jwtService) {
-        this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
-        this.userRoleRepository = userRoleRepository;
-        this.assignmentRepository = assignmentRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtService = jwtService;
-    }
+	@Transactional(readOnly = true)
+	public LoginResponse login(LoginRequest r) {
+		User u = users.findByEmailIgnoreCase(r.email())
+				.orElseThrow(() -> new SecurityException("Invalid email or password"));
+		if (!u.isEnabled() || !encoder.matches(r.password(), u.getPasswordHash()))
+			throw new SecurityException("Invalid email or password");
+		OfficerAssignment a = "Officer".equals(u.getRole()) ? assignments.findByOfficerId(u.getId()).orElse(null)
+				: null;
+		return jwt.create(u, a);
+	}
 
-    /** Register a new CITIZEN user. Throws DuplicateResourceException if email already exists. */
-    public UserResponse register(RegisterRequest req) {
-        String normalizedEmail = EmailNormalizer.normalize(req.email());
-        if (userRepository.existsByEmail(normalizedEmail)) {
-            throw new DuplicateResourceException("Email address is already registered: " + req.email());
-        }
+	@Transactional
+	public void forgot(ForgotRequest r, String correlation) {
+		String email = r.email().trim().toLowerCase(Locale.ROOT);
+		User u = users.findByEmailIgnoreCase(email).orElse(null);
+		if (u == null || !u.isEnabled())
+			return;
+		if (otps.countByEmailIgnoreCaseAndCreatedAtAfter(email, Instant.now().minusSeconds(600)) >= 3)
+			throw new IllegalStateException("Too many OTP requests. Try again after 10 minutes.");
+		String otp = String.format("%06d", random.nextInt(1_000_000));
+		PasswordOtp rec = new PasswordOtp();
+		rec.setEmail(email);
+		rec.setOtpHash(encoder.encode(otp));
+		rec.setExpiresAt(Instant.now().plusSeconds(600));
+		otps.save(rec);
+		events.publish(EventNames.PASSWORD_OTP_REQUESTED, correlation,
+				new Events.PasswordOtpRequested(u.getFullName(), u.getEmail(), otp, rec.getExpiresAt()));
+	}
 
-        User user = new User();
-        user.setName(req.name());
-        user.setEmail(normalizedEmail);
-        user.setPasswordHash(passwordEncoder.encode(req.password()));
-        user.setEnabled(true);
-        User saved = userRepository.save(user);
+	@Transactional
+	public boolean verify(VerifyOtpRequest r) {
+		String email = normalizeEmail(r.email());
+		PasswordOtp o = latest(email);
+		if (o == null)
+			return false;
+		boolean ok = encoder.matches(r.otp(), o.getOtpHash());
+		if (!ok) {
+			o.setAttempts(o.getAttempts() + 1);
+			otps.save(o);
+		}
+		return ok;
+	}
 
-        var citizenRole = roleRepository.findByName("CITIZEN")
-            .orElseThrow(() -> new IllegalStateException(
-                "CITIZEN role is not seeded in the database. Verify V1 migration applied correctly."));
+	@Transactional
+	public void reset(ResetPasswordRequest r, String correlation) {
+		String email = normalizeEmail(r.email());
+		PasswordOtp o = latest(email);
+		if (o == null)
+			throw new IllegalArgumentException("OTP is invalid or expired");
+		if (!encoder.matches(r.otp(), o.getOtpHash())) {
+			o.setAttempts(o.getAttempts() + 1);
+			otps.save(o);
+			throw new IllegalArgumentException("OTP is invalid or expired");
+		}
+		User u = users.findByEmailIgnoreCase(email)
+				.orElseThrow(() -> new IllegalArgumentException("OTP is invalid or expired"));
+		u.setPasswordHash(encoder.encode(r.newPassword()));
+		o.setUsed(true);
+		users.save(u);
+		otps.save(o);
+		events.publish(EventNames.PASSWORD_RESET, correlation, new Events.PasswordReset(u.getFullName(), u.getEmail()));
+	}
 
-        UserRole userRole = new UserRole();
-        userRole.setUser(saved);
-        userRole.setRole(citizenRole);
-        userRoleRepository.save(userRole);
+	private PasswordOtp latest(String email) {
+		PasswordOtp o = otps.findFirstByEmailIgnoreCaseAndUsedFalseOrderByCreatedAtDesc(normalizeEmail(email))
+				.orElse(null);
+		return o == null || o.getExpiresAt().isBefore(Instant.now()) || o.getAttempts() >= 5 ? null : o;
+	}
 
-        return new UserResponse(
-            saved.getId(), saved.getName(), saved.getEmail(),
-            "CITIZEN", saved.isEnabled(), saved.getCreatedAt()
-        );
-    }
-
-    /** Authenticate and issue a JWT. Throws InvalidCredentialsException on any mismatch. */
-    @Transactional(readOnly = true)
-    public LoginResponse login(LoginRequest req) {
-        String normalizedEmail = EmailNormalizer.normalize(req.email());
-        User user = userRepository.findByEmail(normalizedEmail)
-            .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
-
-        if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
-            throw new InvalidCredentialsException("Invalid email or password");
-        }
-
-        UserRole userRole = userRoleRepository.findByUser(user)
-            .orElseThrow(() -> new IllegalStateException(
-                "No role assigned to user id=" + user.getId() + ". Data integrity issue."));
-        String role = userRole.getRole().getName();
-
-        Long departmentId = null;
-        if ("DEPARTMENT_OFFICER".equals(role)) {
-            departmentId = assignmentRepository.findByOfficerId(user.getId())
-                .filter(OfficerDepartmentAssignment -> OfficerDepartmentAssignment.isActive())
-                .map(a -> a.getDepartment().getId())
-                .orElse(null);
-        }
-
-        String token = jwtService.generateToken(user, role, departmentId);
-        Instant expiresAt = Instant.now().plus(jwtService.getExpiryMinutes(), ChronoUnit.MINUTES);
-
-        return new LoginResponse(
-            token,
-            expiresAt,
-            new UserSummary(user.getId(), user.getName(), user.getEmail(), role, departmentId)
-        );
-    }
-
-    /** Build the profile for the currently authenticated user (userId comes from JWT principal, never from request). */
-    @Transactional(readOnly = true)
-    public UserProfileResponse getProfile(Long userId) {
-        User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalStateException(
-                "Authenticated user not found in DB for id=" + userId +
-                ". Token may outlive user account deletion."));
-
-        UserRole userRole = userRoleRepository.findByUser(user)
-            .orElseThrow(() -> new IllegalStateException(
-                "No role assigned to user id=" + userId + ". Data integrity issue."));
-        String role = userRole.getRole().getName();
-
-        Long departmentId = null;
-        if ("DEPARTMENT_OFFICER".equals(role)) {
-            departmentId = assignmentRepository.findByOfficerId(userId)
-                .filter(a -> a.isActive())
-                .map(a -> a.getDepartment().getId())
-                .orElse(null);
-        }
-
-        return new UserProfileResponse(user.getId(), user.getName(), user.getEmail(), role, departmentId);
-    }
+	private String normalizeEmail(String email) {
+		return email.trim().toLowerCase(Locale.ROOT);
+	}
 }
