@@ -1,67 +1,84 @@
 package com.kartyavya.access.controller;
 
-import com.kartyavya.access.dto.CreateOfficerRequest;
-import com.kartyavya.access.dto.OfficerResponse;
-import com.kartyavya.access.dto.PageResponse;
-import com.kartyavya.access.dto.UserResponse;
-import com.kartyavya.access.dto.UserStatusRequest;
-import com.kartyavya.access.security.AuthenticatedPrincipal;
-import com.kartyavya.access.service.OfficerService;
-import com.kartyavya.access.service.UserAdminService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import com.kartyavya.access.dto.AdminDtos.*;
+import com.kartyavya.access.service.AdminService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import java.util.*;
 
 @RestController
-@RequestMapping("/api/admin")
-@Tag(name = "Administration", description = "Endpoints for managing users and officers")
-@SecurityRequirement(name = "bearerAuth")
 public class AdminController {
+	private final AdminService s;
 
-    private final UserAdminService userAdminService;
-    private final OfficerService officerService;
+	public AdminController(AdminService s) {
+		this.s = s;
+	}
 
-    public AdminController(UserAdminService userAdminService, OfficerService officerService) {
-        this.userAdminService = userAdminService;
-        this.officerService = officerService;
-    }
+	@GetMapping("/api/departments")
+	List<DepartmentResponse> publicDepartments() {
+		return s.departments(true);
+	}
 
-    @GetMapping("/users")
-    @Operation(summary = "List users with optional filters (ADMIN only)")
-    public PageResponse<UserResponse> listUsers(
-            @RequestParam(value = "role", required = false) String role,
-            @RequestParam(value = "enabled", required = false) Boolean enabled,
-            @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "20") int size) {
-        return userAdminService.list(role, enabled, page, size);
-    }
+	@GetMapping("/api/admin/departments")
+	List<DepartmentResponse> departments() {
+		return s.departments(false);
+	}
 
-    @PatchMapping("/users/{id}/status")
-    @Operation(summary = "Enable or disable a user account (ADMIN only)")
-    public UserResponse updateUserStatus(
-            @PathVariable("id") Long id,
-            @Valid @RequestBody UserStatusRequest req,
-            Authentication authentication) {
-        AuthenticatedPrincipal p = (AuthenticatedPrincipal) authentication.getPrincipal();
-        return userAdminService.updateStatus(id, req.enabled(), p.userId());
-    }
+	@PostMapping("/api/admin/departments")
+	ResponseEntity<DepartmentResponse> create(@Valid @RequestBody DepartmentRequest r) {
+		return ResponseEntity.status(201).body(s.createDepartment(r));
+	}
 
-    @PostMapping("/officers")
-    @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Create a new department officer (ADMIN only)")
-    public UserResponse createOfficer(@Valid @RequestBody CreateOfficerRequest req) {
-        return officerService.createOfficer(req);
-    }
+	@PutMapping("/api/admin/departments/{id}")
+	DepartmentResponse update(@PathVariable Long id, @Valid @RequestBody DepartmentRequest r) {
+		return s.updateDepartment(id, r);
+	}
 
-    @GetMapping("/officers")
-    @Operation(summary = "List active department officers (ADMIN only)")
-    public PageResponse<OfficerResponse> listOfficers(
-            @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "20") int size) {
-        return officerService.list(page, size);
-    }
+	@DeleteMapping("/api/admin/departments/{id}")
+	Object disable(@PathVariable Long id) {
+		s.disableDepartment(id);
+		return Map.of("message", "Department disabled");
+	}
+
+	@GetMapping("/api/admin/officers")
+	List<OfficerResponse> officers() {
+		return s.officers();
+	}
+
+	@PostMapping("/api/admin/officers")
+	ResponseEntity<OfficerResponse> createOfficer(@Valid @RequestBody OfficerCreate r) {
+		return ResponseEntity.status(201).body(s.createOfficer(r));
+	}
+
+	@PutMapping("/api/admin/officers/{id}")
+	OfficerResponse updateOfficer(@PathVariable Long id, @Valid @RequestBody OfficerUpdate r) {
+		return s.updateOfficer(id, r);
+	}
+
+	@DeleteMapping("/api/admin/officers/{id}")
+	Object disableOfficer(@PathVariable Long id) {
+		s.disableOfficer(id);
+		return Map.of("message", "Officer disabled");
+	}
+
+	@GetMapping("/api/admin/routing-rules")
+	List<RoutingRuleResponse> rules() {
+		return s.rules();
+	}
+
+	@PostMapping("/api/admin/routing-rules")
+	RoutingRuleResponse createRule(@Valid @RequestBody RoutingRuleRequest r) {
+		return s.saveRule(null, r);
+	}
+
+	@PutMapping("/api/admin/routing-rules/{id}")
+	RoutingRuleResponse updateRule(@PathVariable Long id, @Valid @RequestBody RoutingRuleRequest r) {
+		return s.saveRule(id, r);
+	}
+
+	@GetMapping("/api/admin/users/citizens")
+	List<UserResponse> citizens() {
+		return s.citizens();
+	}
 }

@@ -5,17 +5,18 @@ import lombok.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "routing_rules")
+@Table(name = "officer_department_assignments")
 @Getter
 @Setter
 @NoArgsConstructor
-public class RoutingRule {
+public class OfficerAssignment {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 	
-	@Column(nullable = false, unique = true, length = 40)
-	private String category;
+	@OneToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "officer_id", nullable = false, unique = true)
+	private User officer;
 	
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "department_id", nullable = false)
@@ -24,12 +25,12 @@ public class RoutingRule {
 	@Column(nullable = false)
 	private boolean active = true;
 	
-	@Column(name = "updated_at", nullable = false)
-	private Instant updatedAt;
+	@Column(name = "assigned_at", nullable = false)
+	private Instant assignedAt;
 
 	@PrePersist
-	@PreUpdate
-	void touch() {
-		updatedAt = Instant.now();
+	void create() {
+		if (assignedAt == null)
+			assignedAt = Instant.now();
 	}
 }

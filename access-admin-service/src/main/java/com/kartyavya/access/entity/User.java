@@ -1,111 +1,53 @@
 package com.kartyavya.access.entity;
 
 import jakarta.persistence.*;
+import lombok.*;
 import java.time.Instant;
 
-// Owner: M1. Maps to users table — see V1__init_access_schema.sql.
 @Entity
 @Table(name = "users")
+@Getter
+@Setter
+@NoArgsConstructor
 public class User {
-
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-
-	@Column(nullable = false, length = 120)
-	private String name;
-
+	
+	@Column(name = "full_name", nullable = false, length = 120)
+	private String fullName;
+	
 	@Column(nullable = false, unique = true, length = 190)
 	private String email;
-
-	@Column(name = "password_hash", nullable = false)
+	
+	@Column(name = "password_hash", nullable = false, length = 255)
 	private String passwordHash;
-
+	
+	@Column(name = "mobile_number", nullable = false, length = 10)
+	private String mobileNumber;
+	
+	@Column(length = 255)
+	private String address;
+	
+	@Column(nullable = false, length = 30)
+	private String role = "Citizen";
+	
 	@Column(nullable = false)
 	private boolean enabled = true;
-
+	
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
-
+	
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
-	@OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
-	private UserRole userRole;
-
 	@PrePersist
-	protected void onCreate() {
-		Instant now = Instant.now();
-		this.createdAt = now;
-		this.updatedAt = now;
+	void create() {
+		createdAt = updatedAt = Instant.now();
 	}
 
 	@PreUpdate
-	protected void onUpdate() {
-		this.updatedAt = Instant.now();
-	}
-
-	public Long getId() {
-		return id;
-	}
-
-	public void setId(Long id) {
-		this.id = id;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public void setName(String name) {
-		this.name = name;
-	}
-
-	public String getEmail() {
-		return email;
-	}
-
-	public void setEmail(String email) {
-		this.email = email;
-	}
-
-	public String getPasswordHash() {
-		return passwordHash;
-	}
-
-	public void setPasswordHash(String passwordHash) {
-		this.passwordHash = passwordHash;
-	}
-
-	public boolean isEnabled() {
-		return enabled;
-	}
-
-	public void setEnabled(boolean enabled) {
-		this.enabled = enabled;
-	}
-
-	public Instant getCreatedAt() {
-		return createdAt;
-	}
-
-	public void setCreatedAt(Instant createdAt) {
-		this.createdAt = createdAt;
-	}
-
-	public Instant getUpdatedAt() {
-		return updatedAt;
-	}
-
-	public void setUpdatedAt(Instant updatedAt) {
-		this.updatedAt = updatedAt;
-	}
-
-	public UserRole getUserRole() {
-		return userRole;
-	}
-
-	public void setUserRole(UserRole userRole) {
-		this.userRole = userRole;
+	void update() {
+		updatedAt = Instant.now();
 	}
 }
