@@ -1,0 +1,30 @@
+/* App.css - Additional app-specific styles */
+
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure main content pushes footer down */
+.App > *:not(.navbar-custom):not(.footer) {
+  flex: 0 0 auto;
+}
+
+/* v2 Gemini and simplified citizen profile */
+.profile-avatar { width: 58px; height: 58px; border-radius: 18px; display: grid; place-items: center; font-size: 1.65rem; color: #fff; background: linear-gradient(135deg, #2563eb, #06b6d4); box-shadow: 0 12px 26px rgba(37, 99, 235, .24); }
+.profile-security-note { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border: 1px solid rgba(37, 99, 235, .18); border-radius: 16px; background: rgba(37, 99, 235, .06); color: #334155; }
+.profile-security-note > i { font-size: 1.4rem; color: #2563eb; }
+.profile-security-note p { color: #64748b; font-size: .9rem; margin-top: 3px; }
+.gemini-insight-panel { position: relative; overflow: hidden; }
+.gemini-insight-panel::after { content: ''; position: absolute; width: 240px; height: 240px; right: -100px; top: -110px; border-radius: 50%; background: radial-gradient(circle, rgba(99,102,241,.18), transparent 68%); pointer-events: none; }
+.lead-summary { color: #475569; max-width: 980px; line-height: 1.75; }
+.ai-hotspot-card { height: 100%; padding: 18px; border-radius: 16px; border: 1px solid #e2e8f0; background: linear-gradient(145deg, #fff, #f8fafc); box-shadow: 0 8px 22px rgba(15,23,42,.06); }
+.ai-hotspot-card > div:first-child span { font-size: .72rem; padding: 4px 9px; border-radius: 999px; background: #e2e8f0; }
+.ai-hotspot-card p { margin: 12px 0 8px; color: #475569; font-size: .92rem; }
+.ai-hotspot-card small { color: #64748b; }
+.recommended-action { margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1; color: #0f172a; font-size: .88rem; }
+.priority-critical { border-left: 4px solid #7f1d1d; }
+.priority-high { border-left: 4px solid #dc2626; }
+.priority-medium { border-left: 4px solid #d97706; }
+.priority-low { border-left: 4px solid #2563eb; }
