@@ -26,3 +26,5 @@ Thumbs.db
 
 # Spring Cloud Config local clone cache
 config-server/config-cache/
+
+README
