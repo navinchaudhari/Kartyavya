@@ -1,0 +1,1 @@
+package com.kartyavya.report.repository; import com.kartyavya.report.entity.OutboxEvent; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface OutboxRepository extends JpaRepository<OutboxEvent,String>{List<OutboxEvent> findTop50ByStatusOrderByCreatedAtAsc(String status);}

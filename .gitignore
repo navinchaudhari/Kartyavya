@@ -1,37 +1,28 @@
 # Java / Maven
-target/
-*.class
-*.jar
-!.mvn/wrapper/maven-wrapper.jar
+**/target/
 
-# IDE
-.idea/
-*.iml
-.vscode/
-
-# Eclipse / STS
-.classpath
-.project
-.settings/
-.metadata/
-
-# Build output
-bin/
-
-# Node / React
+# Frontend
 frontend/node_modules/
 frontend/dist/
-frontend/.env
-frontend/.env.local
+frontend/.vite/
 
-# Logs
+# Runtime data
+uploads/
+**/uploads/
+**/logs/
 *.log
 
-# OS
+# Local secrets and IDE files
+.env
+.env.*
+.idea/
+.vscode/
+.settings/
+.project
+.classpath
+*.iml
 .DS_Store
 Thumbs.db
 
-# Env / secrets
-.env
-*.pem
-*.key
+# Spring Cloud Config local clone cache
+config-server/config-cache/

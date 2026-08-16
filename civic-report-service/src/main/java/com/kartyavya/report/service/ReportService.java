@@ -1,109 +1,31 @@
 package com.kartyavya.report.service;
-
-import java.util.List;
-import java.util.UUID;
-import java.time.LocalDateTime;
-
-import org.springframework.stereotype.Service;
-
-import com.kartyavya.report.dto.ReportRequestDTO;
-import com.kartyavya.report.dto.ReportResponseDTO;
-import com.kartyavya.report.entity.Report;
-import com.kartyavya.report.event.ReportCreatedEvent;
-import com.kartyavya.report.exception.ReportNotFoundException;
-import com.kartyavya.report.mapper.ReportMapper;
-import com.kartyavya.report.messaging.ReportEventPublisher;
-import com.kartyavya.report.repository.ReportRepository;
-
-import lombok.RequiredArgsConstructor;
-
-@Service
-@RequiredArgsConstructor
-public class ReportService {
-
-	private final ReportRepository repository;
-
-	private final ReportEventPublisher eventPublisher;
-
-	// CREATE
-	public ReportResponseDTO createReport(ReportRequestDTO request) {
-
-		Report report = ReportMapper.toEntity(request);
-
-		Report savedReport = repository.save(report);
-
-		// Create RabbitMQ REPORT_CREATED Event
-
-		ReportCreatedEvent event = ReportCreatedEvent.builder()
-
-				.eventId(UUID.randomUUID().toString())
-
-				.correlationId(UUID.randomUUID().toString())
-
-				.eventTime(LocalDateTime.now())
-
-				.reportId(String.valueOf(savedReport.getId()))
-
-				.category(savedReport.getCategory())
-
-				.title(savedReport.getTitle())
-
-				.build();
-
-		// Publish Event to RabbitMQ
-
-		eventPublisher.publishReportCreated(event);
-
-		return ReportMapper.toResponseDTO(savedReport);
-	}
-
-	// GET ALL
-	public List<ReportResponseDTO> getAllReports() {
-
-		return repository.findAll().stream().map(ReportMapper::toResponseDTO).toList();
-	}
-
-	// GET BY ID
-	public ReportResponseDTO getReportById(Long id) {
-
-		Report report = repository.findById(id)
-				.orElseThrow(() -> new ReportNotFoundException("Report not found : " + id));
-
-		return ReportMapper.toResponseDTO(report);
-	}
-
-	// UPDATE
-	public ReportResponseDTO updateReport(Long id, ReportRequestDTO request) {
-
-		Report existing = repository.findById(id)
-				.orElseThrow(() -> new ReportNotFoundException("Report not found : " + id));
-
-		existing.setTitle(request.getTitle());
-
-		existing.setDescription(request.getDescription());
-
-		existing.setCategory(request.getCategory());
-
-		existing.setSeverity(request.getSeverity());
-
-		existing.setLatitude(request.getLatitude());
-
-		existing.setLongitude(request.getLongitude());
-
-		Report updated = repository.save(existing);
-
-		return ReportMapper.toResponseDTO(updated);
-
-	}
-
-	// DELETE
-	public void deleteReport(Long id) {
-
-		Report report = repository.findById(id)
-				.orElseThrow(() -> new ReportNotFoundException("Report not found : " + id));
-
-		repository.delete(report);
-
-	}
-
+import com.kartyavya.contracts.*; import com.kartyavya.contracts.AccessContracts.*; import com.kartyavya.contracts.ClassificationContracts; import com.kartyavya.report.dto.ReportDtos.*; import com.kartyavya.report.entity.*; import com.kartyavya.report.integration.*; import com.kartyavya.report.repository.*; import org.springframework.data.domain.*; import org.springframework.security.core.Authentication; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional; import java.time.Instant; import java.util.*;
+@Service public class ReportService {
+ private final ReportRepository reports;private final AccessClient access;private final AiClient ai;private final FileStorageService files;private final LocationService locations;private final OutboxService outbox;private final ReportMapper mapper;
+ public ReportService(ReportRepository r,AccessClient a,AiClient i,FileStorageService f,LocationService l,OutboxService o,ReportMapper m){reports=r;access=a;ai=i;files=f;locations=l;outbox=o;mapper=m;}
+ private long id(Authentication a){return Long.parseLong(a.getName());} private String correlation(String c){return c==null?UUID.randomUUID().toString():c;}
+ @Transactional public ReportResponse create(CreateRequest req,Authentication auth,String correlation){long citizenId=id(auth);locations.verify(req.latitude,req.longitude);UserContact citizen=access.user(citizenId);if(!citizen.enabled())throw new IllegalStateException("Citizen account is disabled");ClassificationContracts.Response prediction=ai.classify(new ClassificationContracts.Request(req.complaintTitle,req.description));Report r=new Report();r.setTrackingCode(generateCode());r.setCitizenId(citizenId);r.setCitizenName(citizen.fullName());r.setCitizenEmail(citizen.email());r.setCitizenMobile(citizen.mobileNumber());r.setTitle(req.complaintTitle.trim());r.setDescription(req.description.trim());r.setAreaLocation(req.areaLocation.trim());r.setLatitude(req.latitude);r.setLongitude(req.longitude);r.setImagePath(files.save(req.complaintImage,"reports"));r.setAiCategory(prediction.category());r.setAiSeverity(prediction.severity());r.setAiConfidence(prediction.confidence());r.setSuggestedDepartmentCode(prediction.suggestedDepartmentCode());r.setStatus(ReportStatus.CLASSIFIED);reports.save(r);routeAndAssign(r,0L,"SYSTEM","AI classification and routing completed",correlation(correlation),false);reports.save(r);enqueueCreated(r,correlation(correlation));enqueueRoutingOutcome(r,correlation(correlation));return mapper.response(r);}
+ @Transactional public ReportResponse update(Long reportId,UpdateRequest req,Authentication auth,String correlation){Report r=owned(reportId,id(auth));if(!(r.getStatus()==ReportStatus.PENDING_DEPARTMENT_SETUP||r.getStatus()==ReportStatus.PENDING_OFFICER_ASSIGNMENT||r.getStatus()==ReportStatus.CLASSIFIED))throw new IllegalStateException("Complaint cannot be edited after officer assignment");locations.verify(req.latitude,req.longitude);ReportStatus old=r.getStatus();r.setTitle(req.complaintTitle.trim());r.setDescription(req.description.trim());r.setAreaLocation(req.areaLocation.trim());r.setLatitude(req.latitude);r.setLongitude(req.longitude);if(req.complaintImage!=null&&!req.complaintImage.isEmpty())r.setImagePath(files.save(req.complaintImage,"reports"));ClassificationContracts.Response p=ai.classify(new ClassificationContracts.Request(r.getTitle(),r.getDescription()));r.setAiCategory(p.category());r.setAiSeverity(p.severity());r.setAiConfidence(p.confidence());r.setSuggestedDepartmentCode(p.suggestedDepartmentCode());clearAssignment(r);r.setStatus(ReportStatus.CLASSIFIED);history(r,old,ReportStatus.CLASSIFIED,"Complaint edited and reclassified",r.getCitizenId(),"Citizen");routeAndAssign(r,r.getCitizenId(),"Citizen","Complaint rerouted after citizen edit",correlation(correlation),true);reports.save(r);return mapper.response(r);}
+ @Transactional public void delete(Long reportId,Authentication auth){Report r=owned(reportId,id(auth));if(!(r.getStatus()==ReportStatus.PENDING_DEPARTMENT_SETUP||r.getStatus()==ReportStatus.PENDING_OFFICER_ASSIGNMENT||r.getStatus()==ReportStatus.CLASSIFIED))throw new IllegalStateException("Complaint cannot be deleted after officer assignment");reports.delete(r);}
+ @Transactional(readOnly=true) public List<ReportResponse> mine(Authentication a){return reports.findByCitizenIdOrderByCreatedAtDesc(id(a)).stream().map(mapper::response).toList();}
+ @Transactional(readOnly=true) public ReportResponse one(Long reportId,Authentication a){Report r=required(reportId);String role=a.getAuthorities().iterator().next().getAuthority();long user=id(a);if("ROLE_CITIZEN".equals(role)&&!Objects.equals(r.getCitizenId(),user))throw new SecurityException("Access denied");if("ROLE_OFFICER".equals(role)&&!Objects.equals(r.getOfficerId(),user))throw new SecurityException("Access denied");return mapper.response(r);}
+ @Transactional(readOnly=true) public TrackingResponse track(String code){return mapper.tracking(reports.findByTrackingCode(code.toUpperCase()).orElseThrow(()->new NoSuchElementException("Tracking code not found")));}
+ @Transactional(readOnly=true) public List<NearbyReportResponse> nearby(double lat,double lng,double radiusKm){if(radiusKm<=0||radiusKm>10)throw new IllegalArgumentException("Radius must be between 0 and 10 km");double delta=radiusKm/111.0;return reports.findByLatitudeBetweenAndLongitudeBetweenAndStatusNotIn(lat-delta,lat+delta,lng-delta,lng+delta,List.of(ReportStatus.RESOLVED,ReportStatus.REJECTED)).stream().filter(r->locations.distance(lat,lng,r.getLatitude(),r.getLongitude())<=radiusKm).map(mapper::nearby).toList();}
+ @Transactional(readOnly=true) public List<ReportResponse> officerReports(Authentication a){return reports.findByOfficerIdOrderByCreatedAtDesc(id(a)).stream().map(mapper::response).toList();}
+ @Transactional public ReportResponse updateStatus(Long reportId,StatusUpdateRequest req,Authentication auth,String correlation){Report r=required(reportId);long officer=id(auth);if(!Objects.equals(r.getOfficerId(),officer))throw new SecurityException("Complaint is not assigned to this officer");ReportStatus target=ReportStatus.valueOf(req.status.toUpperCase());if(target==ReportStatus.IN_PROGRESS&&r.getStatus()!=ReportStatus.ASSIGNED)throw new IllegalStateException("Only assigned complaints can be moved to IN_PROGRESS");if(target==ReportStatus.RESOLVED&&r.getStatus()!=ReportStatus.IN_PROGRESS)throw new IllegalStateException("Only in-progress complaints can be resolved");if(target==ReportStatus.RESOLVED&&(req.resolutionRemark==null||req.resolutionRemark.isBlank()||req.resolutionImage==null))throw new IllegalArgumentException("Resolution remark and proof image are required");ReportStatus old=r.getStatus();if(req.correctedCategory!=null&&!req.correctedCategory.isBlank()){ReportCategory original=r.getAiCategory();Severity oldSeverity=r.getAiSeverity();r.setAiCategory(ReportCategory.valueOf(req.correctedCategory.toUpperCase()));if(req.correctedSeverity!=null&&!req.correctedSeverity.isBlank())r.setAiSeverity(Severity.valueOf(req.correctedSeverity.toUpperCase()));r.setAiOverridden(true);outbox.enqueue(EventNames.CLASSIFICATION_CORRECTED,correlation(correlation),new Events.ClassificationCorrected(r.getId(),original.name(),r.getAiCategory().name(),oldSeverity.name(),r.getAiSeverity().name(),officer));}r.setStatus(target);if(target==ReportStatus.RESOLVED){r.setResolutionRemark(req.resolutionRemark.trim());r.setResolutionImagePath(files.save(req.resolutionImage,"resolutions"));r.setResolvedAt(Instant.now());}history(r,old,target,req.resolutionRemark==null?"Status updated":req.resolutionRemark,officer,"Officer");reports.save(r);outbox.enqueue(EventNames.REPORT_STATUS_CHANGED,correlation(correlation),new Events.ReportStatusChanged(r.getId(),r.getTrackingCode(),r.getCitizenName(),r.getCitizenEmail(),r.getOfficerName(),old.name(),target.name(),req.resolutionRemark));if(target==ReportStatus.RESOLVED)outbox.enqueue(EventNames.REPORT_RESOLVED,correlation(correlation),new Events.ReportResolved(r.getId(),r.getTrackingCode(),r.getCitizenName(),r.getCitizenEmail(),r.getOfficerName(),r.getResolutionRemark(),r.getResolvedAt()));return mapper.response(r);}
+ @Transactional(readOnly=true) public Page<ReportResponse> all(int page,int size){return reports.findAllByOrderByCreatedAtDesc(PageRequest.of(page,Math.min(Math.max(size,1),100))).map(mapper::response);}
+ @Transactional(readOnly=true) public List<ReportResponse> pending(ReportStatus status){return reports.findByStatusOrderByCreatedAtDesc(status).stream().map(mapper::response).toList();}
+ @Transactional public ReportResponse assign(Long reportId,AssignmentRequest req,Authentication auth,String correlation){Report r=required(reportId);if(r.getStatus().terminal())throw new IllegalStateException("Resolved or rejected complaints cannot be reassigned");DepartmentInfo department=access.department(req.departmentId());if(!department.enabled())throw new IllegalStateException("Selected department is disabled");ReportStatus old=r.getStatus();r.setDepartmentId(department.departmentId());r.setDepartmentName(department.departmentName());r.setDepartmentEmail(department.contactEmail());if(req.officerId()==null){clearOfficer(r);r.setStatus(ReportStatus.PENDING_OFFICER_ASSIGNMENT);r.setPendingReason("Department is ready, but an officer has not yet been selected");history(r,old,r.getStatus(),req.remarks(),id(auth),"Admin");outbox.enqueue(EventNames.REPORT_PENDING_OFFICER,correlation(correlation),new Events.ReportPending(r.getId(),r.getTrackingCode(),r.getCitizenName(),r.getCitizenEmail(),r.getTitle(),r.getAiCategory().name(),r.getPendingReason(),r.getStatus().name()));}else{OfficerInfo officer=access.officer(req.officerId());if(!officer.enabled())throw new IllegalStateException("Selected officer is disabled");if(!Objects.equals(officer.departmentId(),department.departmentId()))throw new IllegalArgumentException("The selected officer does not belong to the selected department");applyOfficer(r,officer);r.setStatus(ReportStatus.ASSIGNED);r.setPendingReason(null);history(r,old,ReportStatus.ASSIGNED,req.remarks(),id(auth),"Admin");enqueueAssigned(r,correlation(correlation));}reports.save(r);return mapper.response(r);}
+ @Transactional public ReportResponse reprocess(Long reportId,Authentication auth,String correlation){Report r=required(reportId);if(r.getStatus().terminal())throw new IllegalStateException("Closed complaints cannot be reprocessed");ReportStatus old=r.getStatus();clearAssignment(r);r.setStatus(ReportStatus.CLASSIFIED);history(r,old,ReportStatus.CLASSIFIED,"Admin requested routing reprocessing",id(auth),"Admin");routeAndAssign(r,id(auth),"Admin","Routing reprocessed after department/officer setup",correlation(correlation),true);reports.save(r);return mapper.response(r);}
+ @Transactional(readOnly=true) public Map<String,Object> citizenDashboard(Authentication a){long i=id(a);return Map.of("totalComplaints",reports.countByCitizenId(i),"pendingComplaints",reports.findByCitizenIdOrderByCreatedAtDesc(i).stream().filter(x->!x.getStatus().terminal()&&x.getStatus()!=ReportStatus.IN_PROGRESS).count(),"inProgressComplaints",reports.countByCitizenIdAndStatus(i,ReportStatus.IN_PROGRESS),"completedComplaints",reports.countByCitizenIdAndStatus(i,ReportStatus.RESOLVED));}
+ @Transactional(readOnly=true) public Map<String,Object> officerDashboard(Authentication a){long i=id(a);List<Report> x=reports.findByOfficerIdOrderByCreatedAtDesc(i);return Map.of("totalAssigned",x.size(),"pendingComplaints",x.stream().filter(r->r.getStatus()==ReportStatus.ASSIGNED).count(),"inProgressComplaints",x.stream().filter(r->r.getStatus()==ReportStatus.IN_PROGRESS).count(),"completedComplaints",x.stream().filter(r->r.getStatus()==ReportStatus.RESOLVED).count());}
+ @Transactional(readOnly=true) public Map<String,Object> adminDashboard(){Map<String,Long> accessStats=access.stats();long total=reports.count();return Map.of("totalCitizens",accessStats.getOrDefault("totalCitizens",0L),"totalOfficers",accessStats.getOrDefault("totalOfficers",0L),"totalDepartments",accessStats.getOrDefault("totalDepartments",0L),"totalComplaints",total,"pendingComplaints",total-reports.countByStatus(ReportStatus.IN_PROGRESS)-reports.countByStatus(ReportStatus.RESOLVED)-reports.countByStatus(ReportStatus.REJECTED),"inProgressComplaints",reports.countByStatus(ReportStatus.IN_PROGRESS),"completedComplaints",reports.countByStatus(ReportStatus.RESOLVED),"pendingDepartmentSetup",reports.countByStatus(ReportStatus.PENDING_DEPARTMENT_SETUP),"pendingOfficerAssignment",reports.countByStatus(ReportStatus.PENDING_OFFICER_ASSIGNMENT));}
+ private void routeAndAssign(Report r,long actor,String role,String remarks,String correlation,boolean publishTransition){RoutingResolution route=access.route(r.getAiCategory().name());ReportStatus old=r.getStatus();if(!route.mapped()){r.setStatus(ReportStatus.PENDING_DEPARTMENT_SETUP);r.setPendingReason(route.reason());history(r,old,r.getStatus(),remarks+": "+route.reason(),actor,role);if(publishTransition)outbox.enqueue(EventNames.REPORT_PENDING_DEPARTMENT,correlation,new Events.ReportPending(r.getId(),r.getTrackingCode(),r.getCitizenName(),r.getCitizenEmail(),r.getTitle(),r.getAiCategory().name(),r.getPendingReason(),r.getStatus().name()));return;}r.setDepartmentId(route.departmentId());r.setDepartmentName(route.departmentName());r.setDepartmentEmail(route.departmentEmail());List<OfficerInfo> candidates=access.officers(route.departmentId()).officers();if(candidates==null||candidates.isEmpty()){r.setStatus(ReportStatus.PENDING_OFFICER_ASSIGNMENT);r.setPendingReason("No active officer is allocated to "+route.departmentName());history(r,old,r.getStatus(),remarks+": no active officer",actor,role);if(publishTransition)outbox.enqueue(EventNames.REPORT_PENDING_OFFICER,correlation,new Events.ReportPending(r.getId(),r.getTrackingCode(),r.getCitizenName(),r.getCitizenEmail(),r.getTitle(),r.getAiCategory().name(),r.getPendingReason(),r.getStatus().name()));return;}OfficerInfo selected=candidates.stream().min(Comparator.comparingLong(o->reports.countByOfficerIdAndStatusNotIn(o.officerId(),List.of(ReportStatus.RESOLVED,ReportStatus.REJECTED)))).orElseThrow();applyOfficer(r,selected);r.setStatus(ReportStatus.ASSIGNED);r.setPendingReason(null);history(r,old,ReportStatus.ASSIGNED,remarks+": automatically assigned to least-loaded officer",actor,role);if(publishTransition)enqueueAssigned(r,correlation);}
+ private void enqueueRoutingOutcome(Report r,String c){if(r.getStatus()==ReportStatus.PENDING_DEPARTMENT_SETUP){outbox.enqueue(EventNames.REPORT_PENDING_DEPARTMENT,c,new Events.ReportPending(r.getId(),r.getTrackingCode(),r.getCitizenName(),r.getCitizenEmail(),r.getTitle(),r.getAiCategory().name(),r.getPendingReason(),r.getStatus().name()));}else if(r.getStatus()==ReportStatus.PENDING_OFFICER_ASSIGNMENT){outbox.enqueue(EventNames.REPORT_PENDING_OFFICER,c,new Events.ReportPending(r.getId(),r.getTrackingCode(),r.getCitizenName(),r.getCitizenEmail(),r.getTitle(),r.getAiCategory().name(),r.getPendingReason(),r.getStatus().name()));}else if(r.getStatus()==ReportStatus.ASSIGNED){enqueueAssigned(r,c);}}
+ private void enqueueCreated(Report r,String c){outbox.enqueue(EventNames.REPORT_CREATED,c,new Events.ReportCreated(r.getId(),r.getTrackingCode(),r.getCitizenId(),r.getCitizenName(),r.getCitizenEmail(),r.getTitle(),r.getAreaLocation(),r.getLatitude(),r.getLongitude(),r.getAiCategory().name(),r.getAiSeverity().name(),r.getAiConfidence(),r.getDepartmentId(),r.getDepartmentName(),r.getOfficerId(),r.getOfficerName(),r.getOfficerEmail(),r.getStatus().name(),r.getCreatedAt()));}
+ private void enqueueAssigned(Report r,String c){outbox.enqueue(EventNames.REPORT_ASSIGNED,c,new Events.ReportAssigned(r.getId(),r.getTrackingCode(),r.getCitizenName(),r.getCitizenEmail(),r.getOfficerName(),r.getOfficerEmail(),r.getDepartmentName(),r.getTitle(),r.getAreaLocation(),r.getAiSeverity().name()));}
+ private void applyOfficer(Report r,OfficerInfo o){r.setOfficerId(o.officerId());r.setOfficerName(o.fullName());r.setOfficerEmail(o.email());r.setOfficerMobile(o.mobileNumber());}
+ private void clearOfficer(Report r){r.setOfficerId(null);r.setOfficerName(null);r.setOfficerEmail(null);r.setOfficerMobile(null);}private void clearAssignment(Report r){r.setDepartmentId(null);r.setDepartmentName(null);r.setDepartmentEmail(null);clearOfficer(r);r.setPendingReason(null);}
+ private void history(Report r,ReportStatus from,ReportStatus to,String remarks,long actor,String role){StatusHistory h=new StatusHistory();h.setReport(r);h.setFromStatus(from);h.setToStatus(to);h.setRemarks(remarks);h.setChangedBy(actor);h.setChangedByRole(role);r.getStatusHistory().add(h);}
+ private Report required(Long id){return reports.findById(id).orElseThrow(()->new NoSuchElementException("Complaint not found"));}private Report owned(Long id,long user){Report r=required(id);if(!Objects.equals(r.getCitizenId(),user))throw new SecurityException("Access denied");return r;}private String generateCode(){return "KTY-"+UUID.randomUUID().toString().replace("-","").substring(0,10).toUpperCase();}
 }

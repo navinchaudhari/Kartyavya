@@ -1,13 +1,20 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-// Frontend calls ONLY the API Gateway base URL (port 8080). Never call business-service ports directly.
-export default defineConfig({
-  plugins: [react()],
-  server: { port: 5173 },
-  test: {
-    environment: 'jsdom',
-    setupFiles: './vitest.setup.js',
-    globals: true,
-  },
+const frontendDirectory = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(frontendDirectory, '..');
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, projectRoot, '');
+  return {
+    plugins: [react()],
+    envDir: projectRoot,
+    server: {
+      host: env.FRONTEND_HOST || 'localhost',
+      port: Number(env.FRONTEND_PORT || 5173),
+      open: true,
+    },
+  };
 });

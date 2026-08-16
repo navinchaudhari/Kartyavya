@@ -1,0 +1,1 @@
+package com.kartyavya.report.integration; import feign.RequestInterceptor; import org.springframework.beans.factory.annotation.Value; import org.springframework.context.annotation.*; @Configuration public class InternalFeignConfig{@Bean RequestInterceptor internal(@Value("${security.internal-key}")String key){return t->t.header("X-Internal-Key",key);}}

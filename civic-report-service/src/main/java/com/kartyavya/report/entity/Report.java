@@ -1,109 +1,15 @@
 package com.kartyavya.report.entity;
-
-import jakarta.persistence.*;
-import lombok.Data;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.UUID;
-
-@Entity
-@Table(name = "reports")
-@Data
-public class Report {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-
-    @Column(
-            name = "tracking_code",
-            nullable = false,
-            unique = true,
-            length = 36,
-            columnDefinition = "CHAR(36)",
-            updatable = false
-    )
-    private String trackingCode;
-
-
-    @Column(name = "reporter_id", nullable = false)
-    private Long reporterId;
-
-
-    @Column(nullable = false, length = 150)
-    private String title;
-
-
-    @Column(nullable = false, length = 2000)
-    private String description;
-
-
-    @Column(nullable = false, precision = 9, scale = 6)
-    private BigDecimal latitude;
-
-
-    @Column(nullable = false, precision = 9, scale = 6)
-    private BigDecimal longitude;
-
-
-    @Column(length = 40)
-    private String category;
-
-
-    @Column(length = 20)
-    private String severity;
-
-
-    @Column(name = "confidence_score", precision = 5, scale = 4)
-    private BigDecimal confidenceScore;
-
-
-    @Column(name = "urgency_score", precision = 5, scale = 4)
-    private BigDecimal urgencyScore;
-
-
-    @Column(nullable = false, length = 30)
-    private String status = "SUBMITTED";
-
-
-    private Long assignedDepartmentId;
-
-
-    @Version
-    private Long version;
-
-
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
-
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
-
-
-    // Runs automatically before saving new report
-    @PrePersist
-    public void prePersist(){
-
-        if(trackingCode == null || trackingCode.isEmpty()){
-            trackingCode = UUID.randomUUID().toString();
-        }
-
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-
-
-    // Runs automatically before updating report
-    @PreUpdate
-    public void preUpdate(){
-
-        updatedAt = LocalDateTime.now();
-
-    }
-
+import com.kartyavya.contracts.*; import jakarta.persistence.*; import lombok.*; import java.time.Instant; import java.util.*;
+@Entity @Table(name="reports",indexes={@Index(name="idx_report_citizen",columnList="citizen_id"),@Index(name="idx_report_officer",columnList="officer_id"),@Index(name="idx_report_status",columnList="status"),@Index(name="idx_report_location",columnList="latitude,longitude")}) @Getter @Setter @NoArgsConstructor public class Report {
+ @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id; @Column(name="tracking_code",nullable=false,unique=true,length=20) private String trackingCode;
+ @Column(name="citizen_id",nullable=false) private Long citizenId; @Column(name="citizen_name",nullable=false,length=120) private String citizenName; @Column(name="citizen_email",nullable=false,length=190) private String citizenEmail; @Column(name="citizen_mobile",nullable=false,length=15) private String citizenMobile;
+ @Column(nullable=false,length=200) private String title; @Column(nullable=false,length=3000) private String description; @Column(name="area_location",nullable=false,length=255) private String areaLocation; @Column(name="image_path",nullable=false,length=500) private String imagePath;
+ @Column(nullable=false) private Double latitude; @Column(nullable=false) private Double longitude;
+ @Enumerated(EnumType.STRING) @Column(name="ai_category",nullable=false,length=40) private ReportCategory aiCategory; @Enumerated(EnumType.STRING) @Column(name="ai_severity",nullable=false,length=20) private Severity aiSeverity; @Column(name="ai_confidence",nullable=false) private Double aiConfidence; @Column(name="ai_overridden",nullable=false) private boolean aiOverridden;
+ @Column(name="suggested_department_code",length=80) private String suggestedDepartmentCode; @Column(name="department_id") private Long departmentId; @Column(name="department_name",length=120) private String departmentName; @Column(name="department_email",length=190) private String departmentEmail;
+ @Column(name="officer_id") private Long officerId; @Column(name="officer_name",length=120) private String officerName; @Column(name="officer_email",length=190) private String officerEmail; @Column(name="officer_mobile",length=15) private String officerMobile;
+ @Enumerated(EnumType.STRING) @Column(nullable=false,length=45) private ReportStatus status; @Column(name="pending_reason",length=500) private String pendingReason; @Column(name="resolution_remark",length=2000) private String resolutionRemark; @Column(name="resolution_image_path",length=500) private String resolutionImagePath;
+ @Column(name="created_at",nullable=false,updatable=false) private Instant createdAt; @Column(name="updated_at",nullable=false) private Instant updatedAt; @Column(name="resolved_at") private Instant resolvedAt; @Version private Long version;
+ @OneToMany(mappedBy="report",cascade=CascadeType.ALL,orphanRemoval=true) @OrderBy("changedAt ASC") private List<StatusHistory> statusHistory=new ArrayList<>();
+ @PrePersist void create(){createdAt=updatedAt=Instant.now();} @PreUpdate void update(){updatedAt=Instant.now();}
 }

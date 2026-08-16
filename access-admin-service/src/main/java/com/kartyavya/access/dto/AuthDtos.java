@@ -8,7 +8,7 @@ public final class AuthDtos {
 	}
 
 	public record RegisterRequest(@NotBlank @Size(min = 2, max = 120) String fullName, @NotBlank @Email String email,
-			@NotBlank @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,72}$", message = "Password must contain uppercase, lowercase, digit and special character") String password,
+			@NotBlank @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,14}$", message = "Password must contain uppercase, lowercase, digit and special character") String password,
 			@NotBlank @Pattern(regexp = "^[6-9]\\d{9}$") String mobileNumber,
 			@NotBlank @Size(min = 5, max = 255) String address) {
 	}

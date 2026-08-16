@@ -1,5 +1,1 @@
-package com.kartyavya.report.entity;
-
-public class OutboxEvent {
-
-}
+package com.kartyavya.report.entity; import jakarta.persistence.*; import lombok.*; import java.time.Instant; @Entity @Table(name="outbox_events",indexes=@Index(name="idx_outbox_status_created",columnList="status,created_at")) @Getter @Setter @NoArgsConstructor public class OutboxEvent { @Id @Column(length=36,columnDefinition="varchar(36)") private String id; @Column(name="event_type",nullable=false,length=100) private String eventType; @Column(name="routing_key",nullable=false,length=100) private String routingKey; @Lob @Column(nullable=false,columnDefinition="LONGTEXT") private String payload; @Column(nullable=false,length=20) private String status="PENDING"; @Column(nullable=false) private int attempts; @Column(name="created_at",nullable=false) private Instant createdAt=Instant.now(); @Column(name="published_at") private Instant publishedAt; @Column(name="last_error",length=1000) private String lastError; }

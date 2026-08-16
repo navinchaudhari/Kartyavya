@@ -21,12 +21,6 @@ import java.util.Set;
 
 /**
  * Single CORS authority for all browser traffic.
- *
- * <p>The frontend always calls the platform through the API Gateway. Downstream
- * services therefore do not own browser CORS. This filter also removes any
- * accidental downstream Access-Control-* response headers before the response
- * is committed, preventing a service port such as 8083 from leaking into the
- * browser response.</p>
  */
 @Configuration
 public class GatewayCorsConfig {

@@ -1,5 +1,1 @@
-package com.kartyavya.report.entity;
-
-public class StatusHistory {
-
-}
+package com.kartyavya.report.entity; import com.kartyavya.contracts.ReportStatus; import jakarta.persistence.*; import lombok.*; import java.time.Instant; @Entity @Table(name="report_status_history") @Getter @Setter @NoArgsConstructor public class StatusHistory { @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id; @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="report_id",nullable=false) private Report report; @Enumerated(EnumType.STRING) @Column(name="from_status",length=45) private ReportStatus fromStatus; @Enumerated(EnumType.STRING) @Column(name="to_status",nullable=false,length=45) private ReportStatus toStatus; @Column(nullable=false,length=1000) private String remarks; @Column(name="changed_by",nullable=false) private Long changedBy; @Column(name="changed_by_role",nullable=false,length=30) private String changedByRole; @Column(name="changed_at",nullable=false) private Instant changedAt=Instant.now(); }

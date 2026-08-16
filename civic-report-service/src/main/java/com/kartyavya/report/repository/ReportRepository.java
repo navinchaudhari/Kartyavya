@@ -1,12 +1,1 @@
-package com.kartyavya.report.repository;
-
-
-import org.springframework.data.jpa.repository.JpaRepository;
-
-import com.kartyavya.report.entity.Report;
-
-
-public interface ReportRepository 
-        extends JpaRepository<Report,Long>{
-
-}
+package com.kartyavya.report.repository; import com.kartyavya.report.entity.Report; import com.kartyavya.contracts.ReportStatus; import org.springframework.data.domain.*; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface ReportRepository extends JpaRepository<Report,Long>{Optional<Report> findByTrackingCode(String code);List<Report> findByCitizenIdOrderByCreatedAtDesc(Long id);List<Report> findByOfficerIdOrderByCreatedAtDesc(Long id);Page<Report> findAllByOrderByCreatedAtDesc(Pageable p);List<Report> findByStatusOrderByCreatedAtDesc(ReportStatus status);long countByCitizenId(Long id);long countByCitizenIdAndStatus(Long id,ReportStatus s);long countByOfficerIdAndStatusNotIn(Long id,Collection<ReportStatus>s);long countByStatus(ReportStatus s);List<Report> findByLatitudeBetweenAndLongitudeBetweenAndStatusNotIn(Double minLat,Double maxLat,Double minLng,Double maxLng,Collection<ReportStatus> statuses);}
